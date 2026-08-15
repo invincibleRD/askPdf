@@ -1,0 +1,47 @@
+{
+  "name": "askpdf",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RAG-powered document Q&A service: upload PDFs, ask grounded questions, stream answers.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "main": "src/entrypoints/api.js",
+  "scripts": {
+    "start": "node src/entrypoints/api.js",
+    "start:worker": "node src/entrypoints/worker.js",
+    "dev": "node --watch src/entrypoints/api.js",
+    "dev:worker": "node --watch src/entrypoints/worker.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{js,json,md,yaml,yml}\"",
+    "format:check": "prettier --check \"**/*.{js,json,md,yaml,yml}\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:coverage": "vitest run --coverage",
+    "verify": "npm run format:check && npm run lint && npm run test"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "pino": "^9.6.0",
+    "pino-http": "^10.4.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@vitest/coverage-v8": "^2.1.8",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^9.1.0",
+    "globals": "^15.14.0",
+    "prettier": "^3.4.2",
+    "supertest": "^7.0.0",
+    "vitest": "^2.1.8"
+  },
+  "allowScripts": {
+    "esbuild@0.21.5": true
+  }
+}
