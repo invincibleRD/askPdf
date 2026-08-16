@@ -20,8 +20,8 @@ x-app-env: &app-env
   REDIS_URL: redis://redis:6379
   GEMINI_API_KEY: ${GEMINI_API_KEY:-replace-me}
   AI_PROVIDER: ${AI_PROVIDER:-gemini}
-  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-only-access-secret-change-me-0123456789}
-  JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-only-refresh-secret-change-me-0123456789}
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-QaVt2zcrI+HruNBi5VZpGO3q3NaoMEbKTc7FBDv0bVoOgGOi}
+  JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-NljiyByJYVKubp1/wKIwaTDAdmZFa8bk678PU07C1YlfQ6uy}
   STORAGE_DRIVER: local
   STORAGE_LOCAL_PATH: /app/storage
 

@@ -64,10 +64,10 @@ jobs:
         env:
           MONGO_URI: mongodb://127.0.0.1:27017/askpdf-ci
           REDIS_URL: redis://127.0.0.1:6379
-          GEMINI_API_KEY: ci-placeholder
+          GEMINI_API_KEY: AIzaSyD-notarealkey-0000000000000000000
           AI_PROVIDER: fake
-          JWT_ACCESS_SECRET: ci-access-secret-that-is-long-enough-000000
-          JWT_REFRESH_SECRET: ci-refresh-secret-that-is-long-enough-00000
+          JWT_ACCESS_SECRET: Wqh6elpNqG6m4o9FusoHukeIIoYtm7VmiqcJYQ/1+sjs0OdZ
+          JWT_REFRESH_SECRET: LLONz2+WadDxAAlc0T4/QWuqlaI9Wv2ZitcMGYJei/f9u7ei
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -103,10 +103,10 @@ jobs:
           docker run -d --name askpdf-ci -p 3000:3000 \
             -e MONGO_URI=mongodb://127.0.0.1:27017/askpdf \
             -e REDIS_URL=redis://127.0.0.1:6379 \
-            -e GEMINI_API_KEY=ci-placeholder \
+            -e GEMINI_API_KEY=AIzaSyD-notarealkey-0000000000000000000 \
             -e CORS_ORIGINS=https://example.com \
-            -e JWT_ACCESS_SECRET=ci-access-secret-that-is-long-enough-000000 \
-            -e JWT_REFRESH_SECRET=ci-refresh-secret-that-is-long-enough-00000 \
+            -e JWT_ACCESS_SECRET=Wqh6elpNqG6m4o9FusoHukeIIoYtm7VmiqcJYQ/1+sjs0OdZ \
+            -e JWT_REFRESH_SECRET=LLONz2+WadDxAAlc0T4/QWuqlaI9Wv2ZitcMGYJei/f9u7ei \
             askpdf:${{ github.sha }}
 
           for attempt in $(seq 1 20); do
