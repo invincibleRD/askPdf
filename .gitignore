@@ -32,6 +32,10 @@ uploads/
 tmp/
 .tmp/
 
+# Generated test PDFs — rebuild with `npm run fixtures`. The corpus text
+# itself lives in tests/fixtures/corpus.js, which is committed.
+fixtures/pdfs/
+
 # Editors
 .idea/
 .vscode/*

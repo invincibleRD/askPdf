@@ -14,6 +14,7 @@ import { env } from '../config/env.js';
 import { closeResources } from '../core/lifecycle.js';
 import { createLogger } from '../core/logger.js';
 import { registerShutdownHandlers } from '../core/shutdown.js';
+import { connectMongo } from '../infra/mongo/connection.js';
 
 const log = createLogger('entrypoint:worker');
 
@@ -22,6 +23,8 @@ async function main() {
     { nodeEnv: env.NODE_ENV, concurrency: env.WORKER_CONCURRENCY, queue: env.QUEUE_NAME },
     'starting worker',
   );
+
+  await connectMongo();
 
   registerShutdownHandlers({
     forceExitMs: env.SHUTDOWN_TIMEOUT_MS + 5_000,

@@ -14,6 +14,8 @@
     "start:worker": "node src/entrypoints/worker.js",
     "dev": "node --env-file-if-exists=.env --watch src/entrypoints/api.js",
     "dev:worker": "node --env-file-if-exists=.env --watch src/entrypoints/worker.js",
+    "db:indexes": "node --env-file-if-exists=.env scripts/sync-indexes.js",
+    "fixtures": "node scripts/generate-fixtures.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{js,json,md,yaml,yml}\"",
@@ -27,6 +29,7 @@
   },
   "dependencies": {
     "express": "^5.1.0",
+    "mongoose": "^8.24.3",
     "pino": "^9.6.0",
     "pino-http": "^10.4.0",
     "zod": "^3.24.1"
@@ -37,6 +40,7 @@
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^9.1.0",
     "globals": "^15.14.0",
+    "pdfkit": "^0.19.1",
     "pino-pretty": "^13.1.3",
     "prettier": "^3.4.2",
     "supertest": "^7.0.0",
