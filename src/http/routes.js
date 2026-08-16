@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { healthRoutes } from '../modules/health/health.routes.js';
 import { authRoutes } from '../modules/auth/auth.routes.js';
+import { documentRoutes } from '../modules/documents/document.routes.js';
 
 export const API_PREFIX = '/api/v1';
 
@@ -15,6 +16,7 @@ export function registerRoutes(app) {
   });
 
   api.use('/auth', authRoutes());
+  api.use('/documents', documentRoutes());
 
   app.use(API_PREFIX, api);
 }

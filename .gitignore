@@ -51,3 +51,6 @@ Thumbs.db
 # Caches
 .eslintcache
 .cache/
+
+# Local credentials — never committed
+.secrets/
