@@ -51,7 +51,10 @@ async function openConnection(uri) {
     autoIndex: !isProduction,
     autoCreate: !isProduction,
     // Compress the wire protocol; embeddings are large and mostly redundant.
-    compressors: ['zstd', 'zlib'],
+    // zlib only — zstd would compress better but needs a native module, and
+    // a prebuilt binary that has to match the image architecture is not worth
+    // the deployment risk here.
+    compressors: ['zlib'],
     retryWrites: true,
   });
 
