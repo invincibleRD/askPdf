@@ -33,7 +33,7 @@ export async function createJob(input) {
       requestId: input.requestId,
       status: JobStatus.QUEUED,
     });
-    return { job: serialize(job.toObject()), created: true };
+    return { job: job.toJSON(), created: true };
   } catch (error) {
     if (isDuplicateKeyError(error)) {
       const existing = await findLiveJobForDocument(input.documentId);

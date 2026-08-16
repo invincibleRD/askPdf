@@ -15,7 +15,10 @@ import { rethrowDuplicateKey, serialize, toObjectId } from '../../infra/mongo/sc
 export async function createUser(input) {
   try {
     const user = await User.create(input);
-    return serialize(user.toObject());
+    // `toJSON`, not `toObject`: only the former runs the schema transform that
+    // renames _id and strips the password hash. `select: false` does not help
+    // here — the document we just created has the hash in memory.
+    return user.toJSON();
   } catch (error) {
     rethrowDuplicateKey(error, 'An account with this email already exists');
   }

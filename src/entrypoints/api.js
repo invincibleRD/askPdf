@@ -11,11 +11,16 @@ import { createLogger } from '../core/logger.js';
 import { registerShutdownHandlers } from '../core/shutdown.js';
 import { createApp } from '../http/app.js';
 import { startHttpServer, stopHttpServer } from '../http/server.js';
+import { connectMongo } from '../infra/mongo/connection.js';
 
 const log = createLogger('entrypoint:api');
 
 async function main() {
   log.info({ nodeEnv: env.NODE_ENV, version: process.version }, 'starting api');
+
+  // Connect before binding the port. A pod that cannot reach its database
+  // should crash-loop rather than accept traffic it can only answer with 500s.
+  await connectMongo();
 
   const app = createApp();
   const server = await startHttpServer(app);

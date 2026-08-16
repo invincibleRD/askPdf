@@ -27,7 +27,8 @@ export async function createDocument(input) {
       ownerId: toObjectId(input.ownerId),
       status: DocumentStatus.PENDING,
     });
-    return serialize(document.toObject());
+    // `toJSON` runs the schema transform; `toObject` would leave a raw _id.
+    return document.toJSON();
   } catch (error) {
     rethrowDuplicateKey(error, 'This document has already been uploaded');
   }

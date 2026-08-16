@@ -14,6 +14,7 @@
     "start:worker": "node src/entrypoints/worker.js",
     "dev": "node --env-file-if-exists=.env --watch src/entrypoints/api.js",
     "dev:worker": "node --env-file-if-exists=.env --watch src/entrypoints/worker.js",
+    "db:indexes": "node --env-file-if-exists=.env scripts/sync-indexes.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{js,json,md,yaml,yml}\"",
