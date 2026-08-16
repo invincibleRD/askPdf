@@ -23,20 +23,15 @@ async function main() {
     'starting worker',
   );
 
-  /** @type {{ stop: () => Promise<void> } | null} */
-  let consumer = null;
-
   registerShutdownHandlers({
     forceExitMs: env.SHUTDOWN_TIMEOUT_MS + 5_000,
     onShutdown: async () => {
-      // Stop claiming new jobs first, then let the in-flight one finish
-      // before the clients it needs are closed.
-      await consumer?.stop();
+      // The consumer stops claiming new jobs first, then the clients it needs
+      // are closed. Registration order in the lifecycle registry enforces it.
       await closeResources();
     },
   });
 
-  await Promise.resolve();
   log.info('worker ready');
 
   // Keep the event loop alive until a signal arrives. The queue consumer will
