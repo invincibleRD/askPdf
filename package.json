@@ -6,14 +6,14 @@
   "license": "MIT",
   "type": "module",
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=22.12.0"
   },
   "main": "src/entrypoints/api.js",
   "scripts": {
     "start": "node src/entrypoints/api.js",
     "start:worker": "node src/entrypoints/worker.js",
-    "dev": "node --watch src/entrypoints/api.js",
-    "dev:worker": "node --watch src/entrypoints/worker.js",
+    "dev": "node --env-file-if-exists=.env --watch src/entrypoints/api.js",
+    "dev:worker": "node --env-file-if-exists=.env --watch src/entrypoints/worker.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{js,json,md,yaml,yml}\"",
