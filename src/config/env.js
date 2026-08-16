@@ -1,25 +1,15 @@
 import { z } from 'zod';
 
-/**
- * Environment contract.
- *
- * Every configurable value the service reads is declared here exactly once.
- * The process refuses to start when the environment does not satisfy this
- * schema, which turns a class of production incidents ("the pod came up but
- * the queue name was empty") into a boot-time crash that a readiness probe
- * catches before traffic is routed.
- *
- * Nothing else in `src/` may read `process.env` directly; ESLint enforces it.
- */
+// Every configurable value is declared here once, and nothing else in src/
+// reads process.env directly (ESLint enforces it). An invalid environment is a
+// boot-time crash, not a half-configured process.
 
-/** Coerce "1"/"true"/"yes"/"on" to a boolean, defaulting when unset. */
 const booleanFromEnv = (defaultValue) =>
   z
     .enum(['true', 'false', '1', '0', 'yes', 'no', 'on', 'off'])
     .default(defaultValue ? 'true' : 'false')
     .transform((value) => ['true', '1', 'yes', 'on'].includes(value));
 
-/** A positive integer supplied as a string. */
 const intFromEnv = (defaultValue, { min = 1, max = Number.MAX_SAFE_INTEGER } = {}) =>
   z.coerce.number().int().min(min).max(max).default(defaultValue);
 
@@ -40,15 +30,12 @@ export const envSchema = z
     LOG_PRETTY: booleanFromEnv(false),
 
     /* ---- HTTP ----------------------------------------------------------- */
-    // Comma-separated allow-list; "*" permits any origin (development only).
+    // Comma-separated; "*" is rejected in production.
     CORS_ORIGINS: z.string().default('*'),
-    // Time a request may run before the server gives up, in milliseconds.
     REQUEST_TIMEOUT_MS: intFromEnv(30_000, { min: 1_000 }),
-    // Grace period for in-flight requests when SIGTERM arrives. Must stay
-    // below the orchestrator's terminationGracePeriodSeconds.
+    // Must stay below terminationGracePeriodSeconds.
     SHUTDOWN_TIMEOUT_MS: intFromEnv(15_000, { min: 1_000 }),
-    // Delay between receiving SIGTERM and failing readiness, giving the load
-    // balancer time to stop sending new connections.
+    // Time to let the load balancer notice we're draining.
     SHUTDOWN_DRAIN_MS: intFromEnv(5_000, { min: 0 }),
     TRUST_PROXY: booleanFromEnv(true),
 
@@ -66,13 +53,11 @@ export const envSchema = z
     QUEUE_NAME: z.string().min(1).default('ingest'),
     QUEUE_MAX_ATTEMPTS: intFromEnv(3, { min: 1, max: 10 }),
     QUEUE_BACKOFF_BASE_MS: intFromEnv(2_000, { min: 100 }),
-    // How long a worker blocks on BRPOP before looping to check for shutdown.
+    // How long a worker blocks on BRPOP before checking for shutdown.
     QUEUE_BLOCK_TIMEOUT_SEC: intFromEnv(5, { min: 1, max: 60 }),
-    // A job whose heartbeat is older than this is considered abandoned and is
-    // requeued by the reaper.
+    // A job with an older heartbeat is considered abandoned and requeued.
     QUEUE_VISIBILITY_TIMEOUT_MS: intFromEnv(300_000, { min: 10_000 }),
     WORKER_CONCURRENCY: intFromEnv(2, { min: 1, max: 32 }),
-    // TTL on the Redis hash mirroring job status for fast polling.
     JOB_STATUS_TTL_SEC: intFromEnv(86_400, { min: 60 }),
 
     /* ---- Storage -------------------------------------------------------- */
@@ -104,15 +89,13 @@ export const envSchema = z
     AI_MAX_RETRIES: intFromEnv(3, { min: 0, max: 10 }),
 
     /* ---- Retrieval ------------------------------------------------------ */
-    // Chunks scoring below this cosine similarity never reach the model. This
-    // is the primary hallucination guard: with no context above the floor the
-    // service answers "not found in this document" instead of guessing.
+    // Chunks below this cosine similarity never reach the model — the
+    // hallucination guard.
     RETRIEVAL_MIN_SCORE: z.coerce.number().min(0).max(1).default(0.7),
     RETRIEVAL_TOP_K: intFromEnv(6, { min: 1, max: 50 }),
     RETRIEVAL_CANDIDATES: intFromEnv(100, { min: 10, max: 1_000 }),
     VECTOR_INDEX_NAME: z.string().min(1).default('chunk_embedding_index'),
-    // Atlas vector search is unavailable on a plain mongod, so the default
-    // driver scores candidates in the application process.
+    // Atlas vector search needs a real Atlas cluster; "memory" scores in-process.
     VECTOR_SEARCH_DRIVER: z.enum(['memory', 'atlas']).default('memory'),
 
     /* ---- Auth ----------------------------------------------------------- */
@@ -127,6 +110,8 @@ export const envSchema = z
     /* ---- Rate limiting -------------------------------------------------- */
     RATE_LIMIT_WINDOW_MS: intFromEnv(60_000, { min: 1_000 }),
     RATE_LIMIT_MAX: intFromEnv(120, { min: 1 }),
+    // Tighter than the rest: each attempt costs a bcrypt verification.
+    RATE_LIMIT_AUTH_MAX: intFromEnv(10, { min: 1 }),
     RATE_LIMIT_UPLOAD_MAX: intFromEnv(10, { min: 1 }),
     RATE_LIMIT_CHAT_MAX: intFromEnv(30, { min: 1 }),
 
@@ -189,15 +174,7 @@ export const envSchema = z
     }
   });
 
-/**
- * Parses an environment bag into the validated config shape.
- *
- * Exported separately from the singleton so tests can exercise the schema
- * without mutating `process.env`.
- *
- * @param {NodeJS.ProcessEnv} source
- * @returns {{ success: true, data: object } | { success: false, error: string }}
- */
+/** Separate from the singleton so tests can exercise the schema directly. */
 export function parseEnv(source) {
   const result = envSchema.safeParse(source);
 
@@ -212,19 +189,11 @@ export function parseEnv(source) {
   return { success: false, error: `Invalid environment configuration:\n${details}` };
 }
 
-/**
- * Parses the process environment or terminates.
- *
- * Called once during module initialisation. Failing fast here is deliberate:
- * a misconfigured pod should crash-loop visibly rather than serve traffic with
- * half its features silently disabled.
- */
 function loadEnv() {
   const result = parseEnv(process.env);
 
   if (!result.success) {
-    // The logger depends on config, so this one message predates it and has
-    // to go straight to stderr.
+    // The logger depends on config, so this predates it.
     process.stderr.write(`${result.error}\n`);
     process.exit(1);
   }

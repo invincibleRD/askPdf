@@ -1,21 +1,8 @@
 /**
- * The test corpus.
- *
- * Retrieval quality cannot be tested with one document about one thing. These
- * four cover deliberately unrelated domains, each with facts that appear in
- * exactly one of them, so a query can be checked for two failures at once:
- *
- *   - *recall*    — did the right passage come back at all?
- *   - *precision* — did a passage from an unrelated document come back too?
- *
- * The `probes` on each document are the assertions: `expected` questions must
- * retrieve that document's chunks with a score above the threshold, and
- * `offTopic` questions must fall below it so the service refuses instead of
- * inventing an answer.
- *
- * Text is written to be semantically distinctive rather than long. Shared
- * vocabulary between documents ("system", "process", "report") is kept low on
- * purpose — that is what makes a retrieval regression visible.
+ * Four documents on unrelated topics. Each carries `expected` probes (must be
+ * retrieved above the threshold) and `offTopic` probes borrowed from the other
+ * documents (must fall below it), so a query tests recall and precision at once.
+ * Shared vocabulary is kept low on purpose — that's what makes a regression show.
  */
 
 export const CORPUS = Object.freeze([
@@ -212,33 +199,24 @@ export const CORPUS = Object.freeze([
   },
 ]);
 
-/**
- * Edge cases the happy-path corpus does not cover.
- *
- * Each is a shape that has broken a real ingestion pipeline: a file with no
- * extractable text (a scan), one large enough to test the size ceiling, one
- * small enough to produce a single chunk, and one whose text is entirely
- * non-Latin.
- */
+/** Shapes that break real ingestion pipelines. */
 export const EDGE_CASES = Object.freeze({
-  /** No text layer at all — parsing must fail cleanly, not produce empty chunks. */
+  /** Parsing must fail cleanly, not produce empty chunks. */
   imageOnly: {
     slug: 'scanned-no-text-layer',
     title: 'Scanned Page Without Text Layer',
   },
-  /** One short paragraph: exercises the single-chunk path. */
   tiny: {
     slug: 'single-paragraph',
     title: 'Single Paragraph',
     text: 'The mean time between failures for the replacement pump is rated at 4000 hours.',
   },
-  /** Non-Latin script, to catch byte-vs-character length bugs in chunking. */
+  /** Catches byte-vs-character length bugs in chunking. */
   unicode: {
     slug: 'unicode-content',
     title: 'Unicode Content',
     text: 'हिन्दी में लिखा गया एक परीक्षण दस्तावेज़। 日本語のテキストも含まれています。 Ελληνικά επίσης.',
   },
-  /** Many pages of filler, to exercise batching and the page ceiling. */
   large: {
     slug: 'many-pages',
     title: 'Many Pages',
@@ -246,19 +224,16 @@ export const EDGE_CASES = Object.freeze({
   },
 });
 
-/** @param {string} slug */
 export function findCorpusDocument(slug) {
   return CORPUS.find((doc) => doc.slug === slug) ?? null;
 }
 
-/** Every expected probe across the corpus, tagged with its source document. */
 export function allExpectedProbes() {
   return CORPUS.flatMap((doc) =>
     doc.probes.expected.map((probe) => ({ ...probe, slug: doc.slug, title: doc.title })),
   );
 }
 
-/** Every off-topic probe, tagged with the document it must *not* match. */
 export function allOffTopicProbes() {
   return CORPUS.flatMap((doc) =>
     doc.probes.offTopic.map((question) => ({ question, slug: doc.slug })),

@@ -1,26 +1,10 @@
 import PDFDocument from 'pdfkit';
 import { CORPUS, EDGE_CASES } from './corpus.js';
 
-/**
- * PDF generation for tests.
- *
- * Fixtures are built at run time rather than committed as binaries. Three
- * reasons: the repository stays free of opaque blobs, the text in a fixture
- * can be asserted against because it is declared next to the assertion, and a
- * change to the corpus cannot drift out of sync with the files.
- *
- * These are real PDFs produced by a real writer — the parser is exercised
- * against the same structures it will meet in production, not a hand-rolled
- * approximation.
- */
+// Built at run time rather than committed as binaries, so the fixture text
+// lives next to the assertions that depend on it and can't drift.
 
-/**
- * Renders a PDFKit document to a single Buffer.
- *
- * @param {(doc: PDFKit.PDFDocument) => void} draw
- * @param {{ title?: string, author?: string }} [meta]
- * @returns {Promise<Buffer>}
- */
+/** @param {(doc: PDFKit.PDFDocument) => void} draw */
 function render(draw, meta = {}) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
@@ -33,7 +17,6 @@ function render(draw, meta = {}) {
       },
     });
 
-    /** @type {Buffer[]} */
     const chunks = [];
     doc.on('data', (chunk) => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -48,15 +31,7 @@ function render(draw, meta = {}) {
   });
 }
 
-/**
- * Builds one corpus document as a multi-page PDF.
- *
- * Each entry in `pages` becomes its own physical page, so a citation that
- * claims page 2 can be checked against the heading that is actually there.
- *
- * @param {(typeof CORPUS)[number]} definition
- * @returns {Promise<Buffer>}
- */
+/** One page per `pages` entry, so a page citation can be checked against it. */
 export function buildCorpusPdf(definition) {
   return render(
     (doc) => {
@@ -84,7 +59,6 @@ export function buildCorpusPdf(definition) {
   );
 }
 
-/** Builds every corpus document. @returns {Promise<Array<{slug: string, title: string, buffer: Buffer}>>} */
 export async function buildCorpusPdfs() {
   return Promise.all(
     CORPUS.map(async (definition) => ({
@@ -96,11 +70,7 @@ export async function buildCorpusPdfs() {
   );
 }
 
-/**
- * A PDF with a single short paragraph — the one-chunk path.
- *
- * @returns {Promise<Buffer>}
- */
+/** The one-chunk path. */
 export function buildTinyPdf(text = EDGE_CASES.tiny.text) {
   return render(
     (doc) => {
@@ -111,13 +81,8 @@ export function buildTinyPdf(text = EDGE_CASES.tiny.text) {
 }
 
 /**
- * A PDF with no extractable text.
- *
- * Stands in for a scan. Drawing vector shapes rather than glyphs means the
- * page has visible content but the parser finds nothing, which must be
- * reported as a clean failure and never as an empty successful ingest.
- *
- * @returns {Promise<Buffer>}
+ * Stands in for a scan: vector shapes, no glyphs, so the page has visible
+ * content but the parser finds nothing.
  */
 export function buildImageOnlyPdf() {
   return render(
@@ -131,15 +96,7 @@ export function buildImageOnlyPdf() {
   );
 }
 
-/**
- * A PDF whose text is entirely non-Latin.
- *
- * PDFKit's built-in fonts cannot encode these scripts, so the glyphs are not
- * the point — what this catches is chunk sizing that counts bytes where it
- * should count characters.
- *
- * @returns {Promise<Buffer>}
- */
+/** The glyphs aren't the point — chunk sizing that counts bytes is. */
 export function buildUnicodePdf(text = EDGE_CASES.unicode.text) {
   return render(
     (doc) => {
@@ -149,12 +106,7 @@ export function buildUnicodePdf(text = EDGE_CASES.unicode.text) {
   );
 }
 
-/**
- * A deliberately long PDF, for batching and page-ceiling limits.
- *
- * @param {number} [pageCount]
- * @returns {Promise<Buffer>}
- */
+/** For batching and page-ceiling limits. */
 export function buildLargePdf(pageCount = EDGE_CASES.large.pageCount) {
   return render(
     (doc) => {
@@ -179,22 +131,12 @@ export function buildLargePdf(pageCount = EDGE_CASES.large.pageCount) {
   );
 }
 
-/**
- * Bytes that are not a PDF at all.
- *
- * Upload validation must reject this on its magic bytes, whatever the
- * filename or declared content type claims.
- */
+/** Must be rejected on magic bytes, whatever the filename claims. */
 export function buildNotAPdf() {
   return Buffer.from('This is a plain text file pretending to be a PDF.\n', 'utf8');
 }
 
-/**
- * A file whose first bytes are the PDF header but whose body is corrupt.
- *
- * Passes the cheap magic-byte check and then fails in the parser — the case
- * that separates "validated the upload" from "can actually read it".
- */
+/** Passes the magic-byte check, then fails in the parser. */
 export function buildCorruptPdf() {
   return Buffer.concat([
     Buffer.from('%PDF-1.7\n', 'ascii'),

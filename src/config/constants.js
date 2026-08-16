@@ -1,12 +1,6 @@
-/**
- * Shared vocabulary.
- *
- * These values cross process boundaries — they are written to MongoDB, echoed
- * in Redis hashes and returned in API responses — so they are frozen and
- * defined in one place rather than repeated as string literals.
- */
+// Values that cross process boundaries: written to MongoDB, echoed in Redis
+// hashes, returned in API responses.
 
-/** Lifecycle of an uploaded document. */
 export const DocumentStatus = Object.freeze({
   PENDING: 'pending',
   PROCESSING: 'processing',
@@ -15,7 +9,6 @@ export const DocumentStatus = Object.freeze({
   DELETED: 'deleted',
 });
 
-/** Lifecycle of an ingestion job. */
 export const JobStatus = Object.freeze({
   QUEUED: 'queued',
   ACTIVE: 'active',
@@ -24,12 +17,7 @@ export const JobStatus = Object.freeze({
   DEAD: 'dead',
 });
 
-/**
- * The five stages of the ingestion pipeline, in execution order.
- *
- * Progress is reported as the index of the current stage, so the order of
- * this array is part of the API contract.
- */
+/** Execution order matters: progress is derived from the stage index. */
 export const PipelineStage = Object.freeze({
   PARSE: 'parse',
   CHUNK: 'chunk',
@@ -46,24 +34,17 @@ export const PIPELINE_STAGES = Object.freeze([
   PipelineStage.FINALIZE,
 ]);
 
-/** Roles carried in the JWT payload. */
 export const UserRole = Object.freeze({
   USER: 'user',
   ADMIN: 'admin',
 });
 
-/** Author of a message in a conversation. */
 export const MessageRole = Object.freeze({
   USER: 'user',
   ASSISTANT: 'assistant',
 });
 
-/**
- * Machine-readable error codes returned in the `error.code` field.
- *
- * Clients branch on these, so treat them as a public contract: add freely,
- * never repurpose an existing code.
- */
+/** Public contract — clients branch on these. Add freely, never repurpose. */
 export const ErrorCode = Object.freeze({
   VALIDATION_FAILED: 'VALIDATION_FAILED',
   UNAUTHORIZED: 'UNAUTHORIZED',
@@ -81,10 +62,9 @@ export const ErrorCode = Object.freeze({
   REQUEST_TIMEOUT: 'REQUEST_TIMEOUT',
 });
 
-/** Header carrying the correlation id through HTTP and into worker jobs. */
 export const REQUEST_ID_HEADER = 'x-request-id';
 
-/** Magic bytes every PDF file begins with (`%PDF-`). */
+/** `%PDF-` */
 export const PDF_MAGIC_BYTES = Object.freeze([0x25, 0x50, 0x44, 0x46, 0x2d]);
 
 export const PDF_MIME_TYPE = 'application/pdf';

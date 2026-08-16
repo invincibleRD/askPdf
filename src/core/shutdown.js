@@ -5,17 +5,11 @@ import { setDraining } from './lifecycle.js';
 const log = createLogger('shutdown');
 
 /**
- * Process-level lifecycle handling.
- *
- * Installs the signal and crash handlers every long-running Node process
- * needs, and guarantees the shutdown routine runs exactly once no matter how
- * many signals arrive.
- *
  * @param {object} params
- * @param {(reason: string) => Promise<void>} params.onShutdown Release resources.
+ * @param {(reason: string) => Promise<void>} params.onShutdown
  * @param {number} [params.drainMs] Pause between failing readiness and closing
- *   connections, giving the load balancer time to stop routing new work.
- * @param {number} [params.forceExitMs] Hard deadline before `process.exit`.
+ *   connections, so the load balancer stops routing first.
+ * @param {number} [params.forceExitMs]
  */
 export function registerShutdownHandlers({ onShutdown, drainMs = 0, forceExitMs = 30_000 }) {
   let shuttingDown = false;
@@ -28,13 +22,8 @@ export function registerShutdownHandlers({ onShutdown, drainMs = 0, forceExitMs 
     shuttingDown = true;
 
     log.info({ reason }, 'shutting down');
-
-    // Readiness fails first so traffic stops arriving while we are still able
-    // to serve what is already in flight.
     setDraining(true);
 
-    // A watchdog in case a close handler hangs; the orchestrator would send
-    // SIGKILL eventually, but exiting on our own terms keeps the logs honest.
     const forceExit = setTimeout(() => {
       log.fatal({ reason }, 'graceful shutdown timed out, forcing exit');
       process.exit(1);
@@ -62,17 +51,13 @@ export function registerShutdownHandlers({ onShutdown, drainMs = 0, forceExitMs 
     });
   }
 
-  // An uncaught exception leaves the process in an unknown state. The only
-  // safe response is to log it and restart; the orchestrator will replace us.
   process.on('uncaughtException', (error) => {
     log.fatal({ err: error }, 'uncaught exception');
     void shutdown('uncaughtException', 1);
   });
 
-  // A rejected promise from an expected failure (a 404 that nobody awaited)
-  // is a bug worth logging but not worth cycling the pod for. Anything else
-  // is treated like an uncaught exception.
   process.on('unhandledRejection', (reason) => {
+    // An unawaited 404 is a bug worth logging, not worth cycling the pod for.
     if (isOperationalError(reason)) {
       log.error({ err: reason }, 'unhandled rejection of an operational error');
       return;
@@ -84,7 +69,6 @@ export function registerShutdownHandlers({ onShutdown, drainMs = 0, forceExitMs 
   return { shutdown };
 }
 
-/** @param {number} ms */
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

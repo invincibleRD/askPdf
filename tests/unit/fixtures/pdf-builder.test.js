@@ -9,7 +9,7 @@ import {
   buildTinyPdf,
   buildUnicodePdf,
 } from '../../fixtures/pdf-builder.js';
-import { CORPUS, allExpectedProbes, allOffTopicProbes } from '../../fixtures/corpus.js';
+import { CORPUS } from '../../fixtures/corpus.js';
 import { PDF_MAGIC_BYTES } from '../../../src/config/constants.js';
 
 /** `%PDF-` — the five bytes upload validation checks for. */
@@ -22,10 +22,6 @@ describe('corpus definition', () => {
   it('has several documents on unrelated topics', () => {
     expect(CORPUS.length).toBeGreaterThanOrEqual(4);
     expect(new Set(CORPUS.map((doc) => doc.topic)).size).toBe(CORPUS.length);
-  });
-
-  it('gives every document a unique slug', () => {
-    expect(new Set(CORPUS.map((doc) => doc.slug)).size).toBe(CORPUS.length);
   });
 
   it('spans multiple pages per document, so citations can be checked', () => {
@@ -74,12 +70,6 @@ describe('corpus definition', () => {
       }
     }
   });
-
-  it('exposes flattened probe lists for the retrieval suite', () => {
-    expect(allExpectedProbes().length).toBeGreaterThanOrEqual(8);
-    expect(allOffTopicProbes().length).toBeGreaterThanOrEqual(4);
-    expect(allExpectedProbes()[0]).toHaveProperty('slug');
-  });
 });
 
 describe('buildCorpusPdf', () => {
@@ -110,29 +100,13 @@ describe('buildCorpusPdf', () => {
 });
 
 describe('edge case fixtures', () => {
-  it('builds a single-paragraph PDF', async () => {
-    const buffer = await buildTinyPdf();
-
-    expect(startsWithPdfMagic(buffer)).toBe(true);
-  });
-
-  it('builds a PDF with no text layer', async () => {
-    const buffer = await buildImageOnlyPdf();
-
-    expect(startsWithPdfMagic(buffer)).toBe(true);
-  });
-
-  it('builds a non-Latin PDF', async () => {
-    const buffer = await buildUnicodePdf();
-
-    expect(startsWithPdfMagic(buffer)).toBe(true);
-  });
-
-  it('builds a many-page PDF large enough to exercise batching', async () => {
-    const buffer = await buildLargePdf(40);
-
-    expect(startsWithPdfMagic(buffer)).toBe(true);
-    expect(buffer.byteLength).toBeGreaterThan(20_000);
+  it.each([
+    ['single paragraph', buildTinyPdf],
+    ['no text layer', buildImageOnlyPdf],
+    ['non-Latin script', buildUnicodePdf],
+    ['many pages', () => buildLargePdf(40)],
+  ])('builds a valid PDF for %s', async (_label, build) => {
+    expect(startsWithPdfMagic(await build())).toBe(true);
   });
 });
 

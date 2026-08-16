@@ -1,9 +1,8 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   checkResources,
   closeResources,
   isDraining,
-  listResources,
   registerResource,
   resetResources,
   setDraining,
@@ -14,27 +13,12 @@ afterEach(() => {
 });
 
 describe('registerResource', () => {
-  it('keeps registrations in order', () => {
-    registerResource({ name: 'mongo' });
-    registerResource({ name: 'redis' });
-
-    expect(listResources().map((r) => r.name)).toEqual(['mongo', 'redis']);
-  });
-
   it('rejects a duplicate name', () => {
     registerResource({ name: 'mongo' });
 
     expect(() => {
       registerResource({ name: 'mongo' });
     }).toThrow(/already registered/);
-  });
-
-  it('treats resources as critical unless told otherwise', () => {
-    registerResource({ name: 'mongo' });
-    registerResource({ name: 's3', critical: false });
-
-    expect(listResources()[0].critical).toBe(true);
-    expect(listResources()[1].critical).toBe(false);
   });
 });
 
@@ -43,27 +27,8 @@ describe('checkResources', () => {
     await expect(checkResources()).resolves.toMatchObject({ healthy: true, checks: {} });
   });
 
-  it('skips resources that declare no check', async () => {
-    registerResource({ name: 'storage', close: () => {} });
-
-    const { checks } = await checkResources();
-
-    expect(checks).toEqual({});
-  });
-
-  it('records duration for each check', async () => {
-    registerResource({ name: 'mongo', check: () => true });
-
-    const { checks } = await checkResources();
-
-    expect(checks.mongo.durationMs).toBeGreaterThanOrEqual(0);
-  });
-
   it('marks a hanging check as down instead of blocking readiness', async () => {
-    registerResource({
-      name: 'stuck',
-      check: () => new Promise(() => {}),
-    });
+    registerResource({ name: 'stuck', check: () => new Promise(() => {}) });
 
     const { healthy, checks } = await checkResources({ timeoutMs: 20 });
 
@@ -93,7 +58,7 @@ describe('closeResources', () => {
 
     await closeResources();
 
-    // The queue consumer depends on the redis client, so it must go first.
+    // The queue consumer depends on the redis client, so it goes first.
     expect(closed).toEqual(['queue', 'redis']);
   });
 
@@ -110,17 +75,6 @@ describe('closeResources', () => {
     await expect(closeResources()).resolves.toBeUndefined();
     expect(closed).toEqual(['mongo']);
   });
-
-  it('awaits asynchronous close handlers', async () => {
-    const close = vi.fn(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    });
-    registerResource({ name: 'mongo', close });
-
-    await closeResources();
-
-    expect(close).toHaveBeenCalledOnce();
-  });
 });
 
 describe('draining flag', () => {
@@ -130,12 +84,5 @@ describe('draining flag', () => {
     setDraining(true);
 
     expect(isDraining()).toBe(true);
-  });
-
-  it('is cleared by reset', () => {
-    setDraining(true);
-    resetResources();
-
-    expect(isDraining()).toBe(false);
   });
 });

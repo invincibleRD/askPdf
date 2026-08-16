@@ -2,7 +2,6 @@ import { Schema, model } from 'mongoose';
 import { DocumentStatus, PIPELINE_STAGES } from '../../config/constants.js';
 import { baseSchemaOptions } from '../../infra/mongo/schema-helpers.js';
 
-/** Why a document failed, kept for the API and for debugging a retry. */
 const failureSchema = new Schema(
   {
     stage: { type: String, enum: PIPELINE_STAGES },
@@ -15,39 +14,16 @@ const failureSchema = new Schema(
 
 const documentSchema = new Schema(
   {
-    ownerId: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
+    ownerId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
 
-    /** Name as uploaded. Display only — never used to build a storage path. */
-    filename: {
-      type: String,
-      required: true,
-      trim: true,
-      maxlength: 255,
-    },
+    /** As uploaded. Display only — never used to build a storage path. */
+    filename: { type: String, required: true, trim: true, maxlength: 255 },
 
-    /**
-     * Opaque key in the storage backend. Generated server-side so a crafted
-     * filename cannot escape the storage prefix.
-     */
-    storageKey: {
-      type: String,
-      required: true,
-      unique: true,
-    },
+    /** Generated server-side, so a crafted filename can't escape the prefix. */
+    storageKey: { type: String, required: true, unique: true },
 
-    /**
-     * SHA-256 of the file bytes. Lets a re-upload of the same PDF reuse the
-     * existing embeddings instead of paying for them twice.
-     */
-    contentHash: {
-      type: String,
-      required: true,
-      length: 64,
-    },
+    /** SHA-256 of the bytes, so a re-upload reuses existing embeddings. */
+    contentHash: { type: String, required: true, length: 64 },
 
     byteSize: { type: Number, required: true, min: 1 },
     pageCount: { type: Number, min: 0, default: 0 },
@@ -60,12 +36,9 @@ const documentSchema = new Schema(
       required: true,
     },
 
-    /** Current pipeline stage while status is `processing`. */
     stage: { type: String, enum: PIPELINE_STAGES, default: null },
-
     failure: { type: failureSchema, default: null },
 
-    /** Extracted title and metadata from the PDF, when present. */
     title: { type: String, trim: true, maxlength: 500 },
 
     processingStartedAt: { type: Date },
@@ -75,14 +48,9 @@ const documentSchema = new Schema(
   baseSchemaOptions(),
 );
 
-/** The library listing: a user's documents, newest first. */
 documentSchema.index({ ownerId: 1, createdAt: -1 });
 
-/**
- * Deduplication is per owner, not global — two users uploading the same
- * public PDF each get their own document. Partial so soft-deleted rows do not
- * block a re-upload.
- */
+/** Dedupe is per owner, and partial so a delete frees the hash for re-upload. */
 documentSchema.index(
   { ownerId: 1, contentHash: 1 },
   {
@@ -92,10 +60,8 @@ documentSchema.index(
   },
 );
 
-/** Used by the stuck-document reaper, which scans by status and age. */
 documentSchema.index({ status: 1, processingStartedAt: 1 });
 
-/** True once the pipeline has finished and questions can be answered. */
 documentSchema.virtual('isReady').get(function isReady() {
   return this.status === DocumentStatus.READY;
 });

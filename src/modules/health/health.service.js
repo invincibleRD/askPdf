@@ -2,16 +2,11 @@ import { checkResources, isDraining } from '../../core/lifecycle.js';
 import { env } from '../../config/env.js';
 
 const startedAt = Date.now();
-
-/** Read from package.json at build time via the image label; falls back here. */
 const VERSION = '0.1.0';
 
 /**
- * Liveness: is this process functioning?
- *
- * Deliberately shallow. A liveness probe that consults MongoDB will restart
- * every pod in the fleet during a database blip, turning a partial outage
- * into a total one. Dependencies belong in readiness, not here.
+ * Deliberately shallow — a liveness probe that consults MongoDB restarts every
+ * pod during a database blip and turns a partial outage into a total one.
  */
 export function getLiveness() {
   return {
@@ -22,13 +17,6 @@ export function getLiveness() {
   };
 }
 
-/**
- * Readiness: should this process receive traffic?
- *
- * Fails while draining, and fails when any critical dependency is down.
- *
- * @returns {Promise<{ ready: boolean, body: object }>}
- */
 export async function getReadiness() {
   if (isDraining()) {
     return {

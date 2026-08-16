@@ -4,19 +4,11 @@ import { createLogger } from '../core/logger.js';
 
 const log = createLogger('http:server');
 
-/**
- * Binds the application to a port.
- *
- * @param {import('express').Express} app
- * @param {{ port?: number, host?: string }} [options]
- * @returns {Promise<import('node:http').Server>}
- */
 export function startHttpServer(app, { port = env.PORT, host = env.HOST } = {}) {
   const server = createServer(app);
 
-  // Keep-alive must outlive the load balancer's idle timeout, otherwise the
-  // balancer can reuse a socket at the instant Node closes it and the client
-  // sees a spurious 502. Headers timeout must exceed keep-alive.
+  // Keep-alive must outlive the load balancer's idle timeout, or the balancer
+  // reuses a socket just as Node closes it and the client sees a 502.
   server.keepAliveTimeout = 65_000;
   server.headersTimeout = 66_000;
   server.requestTimeout = env.REQUEST_TIMEOUT_MS + 5_000;
@@ -44,15 +36,8 @@ export function startHttpServer(app, { port = env.PORT, host = env.HOST } = {}) 
 }
 
 /**
- * Stops accepting connections and waits for in-flight requests.
- *
- * `server.close()` alone can hang indefinitely on keep-alive sockets, so idle
- * connections are closed immediately and the rest are given a deadline before
- * being cut. Without this a rolling deploy stalls until SIGKILL.
- *
- * @param {import('node:http').Server} server
- * @param {number} timeoutMs
- * @returns {Promise<void>}
+ * server.close() alone hangs on keep-alive sockets, so idle ones are dropped
+ * immediately and the rest get a deadline.
  */
 export function stopHttpServer(server, timeoutMs = env.SHUTDOWN_TIMEOUT_MS) {
   if (!server.listening) {
@@ -81,7 +66,6 @@ export function stopHttpServer(server, timeoutMs = env.SHUTDOWN_TIMEOUT_MS) {
       finish();
     });
 
-    // Sockets sitting idle in a keep-alive pool have no request to drain.
     server.closeIdleConnections();
   });
 }

@@ -1,13 +1,8 @@
 import { ValidationError } from '../../core/errors.js';
 
 /**
- * Schema validation for request input.
- *
- * Controllers should never see unvalidated data. This middleware parses the
- * named parts of the request with zod and, importantly, *replaces* them with
- * the parsed result — so coercions and defaults declared in the schema are
- * what the handler actually gets, and unknown keys are stripped rather than
- * silently forwarded into a database write.
+ * Parses and *replaces* the named request parts, so handlers get coerced
+ * values with unknown keys stripped.
  *
  * @param {{ body?: import('zod').ZodTypeAny, query?: import('zod').ZodTypeAny, params?: import('zod').ZodTypeAny }} schemas
  */
@@ -25,9 +20,7 @@ export function validate(schemas) {
         return;
       }
 
-      // Express 5 exposes `req.query` through a getter, so assigning to it
-      // throws. Defining the property replaces it outright, which keeps the
-      // "handlers only see parsed input" guarantee for every part.
+      // req.query is a getter in Express 5, so assignment throws.
       Object.defineProperty(req, part, {
         value: result.data,
         writable: true,

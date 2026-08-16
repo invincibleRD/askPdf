@@ -7,23 +7,10 @@ import {
   toObjectId,
 } from '../../infra/mongo/schema-helpers.js';
 
-/**
- * Job persistence.
- *
- * State transitions are written as conditional updates rather than
- * read-modify-write. With several workers competing for the same job, a
- * check-then-set would let two of them both believe they won.
- */
+// Transitions are conditional updates, not read-modify-write: with several
+// workers competing, check-then-set lets two of them both believe they won.
 
-/**
- * Creates a job, or returns the live one if a document is already queued.
- *
- * The partial unique index makes this idempotent: a client that retries an
- * upload gets the original job back instead of a second one processing the
- * same document.
- *
- * @param {{ documentId: string, ownerId: string, maxAttempts: number, requestId?: string }} input
- */
+/** Idempotent — the partial unique index means a retried upload reuses the job. */
 export async function createJob(input) {
   try {
     const job = await Job.create({
@@ -45,38 +32,24 @@ export async function createJob(input) {
   }
 }
 
-/**
- * @param {string} id
- */
 export async function findJobById(id) {
   const jobId = toObjectId(id);
   if (!jobId) {
     return null;
   }
 
-  const job = await Job.findById(jobId).lean().exec();
-  return serialize(job);
+  return serialize(await Job.findById(jobId).lean().exec());
 }
 
-/**
- * Fetches a job a user is allowed to see.
- *
- * @param {string} id
- * @param {string} ownerId
- */
 export async function findJobForOwner(id, ownerId) {
   const [jobId, owner] = [toObjectId(id), toObjectId(ownerId)];
   if (!jobId || !owner) {
     return null;
   }
 
-  const job = await Job.findOne({ _id: jobId, ownerId: owner }).lean().exec();
-  return serialize(job);
+  return serialize(await Job.findOne({ _id: jobId, ownerId: owner }).lean().exec());
 }
 
-/**
- * @param {string} documentId
- */
 export async function findLiveJobForDocument(documentId) {
   const id = toObjectId(documentId);
   if (!id) {
@@ -93,16 +66,7 @@ export async function findLiveJobForDocument(documentId) {
   return serialize(job);
 }
 
-/**
- * Claims a job for a worker.
- *
- * Conditional on the job still being queued, so exactly one worker wins the
- * race even if the queue delivered the message twice.
- *
- * @param {string} id
- * @param {string} workerId
- * @returns {Promise<object | null>} The claimed job, or null if lost.
- */
+/** Exactly one worker wins, even if the queue delivered the message twice. */
 export async function claimJob(id, workerId) {
   const jobId = toObjectId(id);
   if (!jobId) {
@@ -130,15 +94,6 @@ export async function claimJob(id, workerId) {
   return serialize(job);
 }
 
-/**
- * Records stage progress and refreshes the lease.
- *
- * The heartbeat is what distinguishes "still working" from "the worker died",
- * so it is written on every stage transition rather than only at the end.
- *
- * @param {string} id
- * @param {string} stage
- */
 export async function updateJobStage(id, stage) {
   const jobId = toObjectId(id);
   if (!jobId) {
@@ -160,11 +115,7 @@ export async function updateJobStage(id, stage) {
   return serialize(job);
 }
 
-/**
- * Refreshes the lease without changing the stage, for a long-running stage.
- *
- * @param {string} id
- */
+/** Refreshes the lease during a long stage, so the reaper doesn't requeue it. */
 export async function heartbeatJob(id) {
   const jobId = toObjectId(id);
   if (!jobId) {
@@ -177,9 +128,6 @@ export async function heartbeatJob(id) {
   ).exec();
 }
 
-/**
- * @param {string} id
- */
 export async function completeJob(id) {
   const jobId = toObjectId(id);
   if (!jobId) {
@@ -206,15 +154,7 @@ export async function completeJob(id) {
   return serialize(job);
 }
 
-/**
- * Records a failure.
- *
- * A job that has exhausted its attempts, or failed for a reason retrying
- * cannot fix, goes to `dead` and stops consuming worker capacity.
- *
- * @param {string} id
- * @param {{ stage?: string, message: string, retryable?: boolean }} failure
- */
+/** Out of attempts, or a failure retrying can't fix, goes straight to dead. */
 export async function failJob(id, { stage, message, retryable = true }) {
   const jobId = toObjectId(id);
   if (!jobId) {
@@ -247,11 +187,6 @@ export async function failJob(id, { stage, message, retryable = true }) {
   return serialize(job);
 }
 
-/**
- * Returns a failed job to the queue for another attempt.
- *
- * @param {string} id
- */
 export async function requeueJob(id) {
   const jobId = toObjectId(id);
   if (!jobId) {
@@ -261,6 +196,7 @@ export async function requeueJob(id) {
   const job = await Job.findOneAndUpdate(
     { _id: jobId, status: { $in: [JobStatus.FAILED, JobStatus.ACTIVE] } },
     {
+      // attempts is not reset, so retries stay bounded.
       $set: {
         status: JobStatus.QUEUED,
         stage: null,
@@ -277,16 +213,7 @@ export async function requeueJob(id) {
   return serialize(job);
 }
 
-/**
- * Active jobs whose worker has stopped reporting.
- *
- * A pod evicted mid-job leaves its claim behind; the reaper finds them here
- * and requeues them, which is what makes at-least-once delivery hold even
- * when a worker dies without unwinding.
- *
- * @param {number} visibilityTimeoutMs
- * @param {number} [limit]
- */
+/** Claims left behind by an evicted pod — what makes at-least-once hold. */
 export async function findAbandonedJobs(visibilityTimeoutMs, limit = 50) {
   const cutoff = new Date(Date.now() - visibilityTimeoutMs);
 
@@ -301,10 +228,6 @@ export async function findAbandonedJobs(visibilityTimeoutMs, limit = 50) {
   return serializeMany(jobs);
 }
 
-/**
- * @param {string} ownerId
- * @param {{ limit?: number }} [options]
- */
 export async function listJobsForOwner(ownerId, { limit = 20 } = {}) {
   const owner = toObjectId(ownerId);
   if (!owner) {
@@ -312,6 +235,5 @@ export async function listJobsForOwner(ownerId, { limit = 20 } = {}) {
   }
 
   const jobs = await Job.find({ ownerId: owner }).sort({ _id: -1 }).limit(limit).lean().exec();
-
   return serializeMany(jobs);
 }
