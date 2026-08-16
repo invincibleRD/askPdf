@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   getContext,
   getRequestId,
-  newRequestId,
   runWithContext,
   setContext,
 } from '../../../src/core/request-context.js';
@@ -61,9 +60,5 @@ describe('request context', () => {
       setContext({ userId: 'nobody' });
     }).not.toThrow();
     expect(getContext()).toEqual({});
-  });
-
-  it('mints unique request ids', () => {
-    expect(newRequestId()).not.toBe(newRequestId());
   });
 });

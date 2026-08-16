@@ -1,38 +1,17 @@
 import { User } from './user.model.js';
 import { rethrowDuplicateKey, serialize, toObjectId } from '../../infra/mongo/schema-helpers.js';
 
-/**
- * User persistence.
- *
- * Repositories are the only place that talks to a Mongoose model. Services
- * above them work with plain objects, which keeps document hydration, lean
- * queries and index choices from leaking into business logic.
- */
-
-/**
- * @param {{ email: string, passwordHash: string, name: string, role?: string }} input
- */
 export async function createUser(input) {
   try {
     const user = await User.create(input);
-    // `toJSON`, not `toObject`: only the former runs the schema transform that
-    // renames _id and strips the password hash. `select: false` does not help
-    // here — the document we just created has the hash in memory.
+    // toJSON, not toObject — only toJSON runs the transform that strips the hash.
     return user.toJSON();
   } catch (error) {
     rethrowDuplicateKey(error, 'An account with this email already exists');
   }
 }
 
-/**
- * Looks up an account for sign-in.
- *
- * The password hash is `select: false` on the schema, so authentication has
- * to ask for it deliberately — which means no other caller can leak it.
- *
- * @param {string} email
- * @param {{ withPassword?: boolean }} [options]
- */
+/** The hash is select:false, so authentication has to ask for it explicitly. */
 export async function findUserByEmail(email, { withPassword = false } = {}) {
   const query = User.findOne({ email: email.toLowerCase().trim() });
 
@@ -40,31 +19,18 @@ export async function findUserByEmail(email, { withPassword = false } = {}) {
     query.select('+passwordHash');
   }
 
-  const user = await query.lean().exec();
-  return serialize(user);
+  return serialize(await query.lean().exec());
 }
 
-/**
- * @param {string} id
- */
 export async function findUserById(id) {
   const objectId = toObjectId(id);
   if (!objectId) {
     return null;
   }
 
-  const user = await User.findById(objectId).lean().exec();
-  return serialize(user);
+  return serialize(await User.findById(objectId).lean().exec());
 }
 
-/**
- * Records a successful sign-in.
- *
- * Deliberately fire-and-forget at the call site: a failed timestamp update
- * must never turn a valid login into an error.
- *
- * @param {string} id
- */
 export async function touchLastLogin(id) {
   const objectId = toObjectId(id);
   if (!objectId) {
@@ -74,16 +40,7 @@ export async function touchLastLogin(id) {
   await User.updateOne({ _id: objectId }, { $set: { lastLoginAt: new Date() } }).exec();
 }
 
-/**
- * Invalidates every outstanding refresh token for a user.
- *
- * Used by sign-out-everywhere and by password change. Cheaper and more
- * reliable than maintaining a blacklist: tokens carry the version they were
- * signed with and are rejected once it falls behind.
- *
- * @param {string} id
- * @returns {Promise<number | null>} The new token version.
- */
+/** Invalidates every outstanding refresh token without a blacklist. */
 export async function incrementTokenVersion(id) {
   const objectId = toObjectId(id);
   if (!objectId) {
@@ -101,10 +58,6 @@ export async function incrementTokenVersion(id) {
   return user ? user.tokenVersion : null;
 }
 
-/**
- * @param {string} email
- * @returns {Promise<boolean>}
- */
 export async function emailExists(email) {
   const count = await User.countDocuments({ email: email.toLowerCase().trim() }).limit(1).exec();
   return count > 0;

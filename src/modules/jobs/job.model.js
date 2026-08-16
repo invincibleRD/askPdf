@@ -2,27 +2,12 @@ import { Schema, model } from 'mongoose';
 import { JobStatus, PIPELINE_STAGES } from '../../config/constants.js';
 import { baseSchemaOptions } from '../../infra/mongo/schema-helpers.js';
 
-/**
- * Durable record of an ingestion job.
- *
- * Redis holds the queue and a short-lived status hash for cheap polling; this
- * collection is the source of truth that survives a Redis flush and gives the
- * job an audit trail — how many attempts, which stage failed, how long it
- * took.
- */
+// Redis holds the queue and a short-lived status hash for polling; this is the
+// durable record that survives a Redis flush and keeps the audit trail.
 const jobSchema = new Schema(
   {
-    documentId: {
-      type: Schema.Types.ObjectId,
-      ref: 'Document',
-      required: true,
-    },
-
-    ownerId: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
+    documentId: { type: Schema.Types.ObjectId, ref: 'Document', required: true },
+    ownerId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
 
     status: {
       type: String,
@@ -32,22 +17,14 @@ const jobSchema = new Schema(
     },
 
     stage: { type: String, enum: PIPELINE_STAGES, default: null },
-
-    /** 0–100, derived from the stage index so clients can render a bar. */
     progress: { type: Number, min: 0, max: 100, default: 0 },
 
     attempts: { type: Number, min: 0, default: 0 },
     maxAttempts: { type: Number, min: 1, required: true },
 
-    /**
-     * Correlation id of the HTTP request that created this job.
-     *
-     * This is what lets one id follow an upload from the API log line through
-     * to the worker that embeds it, minutes later and in another process.
-     */
+    /** Correlation id of the request that created the job, so one id spans both processes. */
     requestId: { type: String, maxlength: 128 },
 
-    /** Identifies which worker holds the job, for the abandoned-job reaper. */
     claimedBy: { type: String, maxlength: 128, default: null },
     heartbeatAt: { type: Date, default: null },
 
@@ -69,7 +46,7 @@ const jobSchema = new Schema(
   baseSchemaOptions(),
 );
 
-/** One job at a time per document — enqueue is idempotent while it is live. */
+/** One live job per document — makes enqueue idempotent. */
 jobSchema.index(
   { documentId: 1 },
   {
@@ -79,13 +56,9 @@ jobSchema.index(
   },
 );
 
-/** The reaper scans active jobs whose heartbeat has gone stale. */
 jobSchema.index({ status: 1, heartbeatAt: 1 });
-
-/** Job history for a user, newest first. */
 jobSchema.index({ ownerId: 1, createdAt: -1 });
 
-/** Wall-clock duration once finished, for the metrics endpoint. */
 jobSchema.virtual('durationMs').get(function durationMs() {
   if (!this.startedAt || !this.finishedAt) {
     return null;

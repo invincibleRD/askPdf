@@ -1,23 +1,7 @@
 import { Types } from 'mongoose';
 import { ConflictError } from '../../core/errors.js';
 
-/**
- * Conventions shared by every schema.
- *
- * Keeping these in one place is what stops the API from developing
- * inconsistencies — one collection returning `_id`, another `id`, a third
- * leaking `__v` — as the number of models grows.
- */
-
-/**
- * Options applied to every schema.
- *
- * The `toJSON` transform is the important one: it renames `_id` to `id` and
- * drops the version key, so a document can be returned from a controller
- * without a hand-written mapper at every call site.
- *
- * @param {{ transform?: (doc: unknown, ret: Record<string, unknown>) => unknown }} [overrides]
- */
+/** Shared schema options: renames _id to id and drops __v on serialisation. */
 export function baseSchemaOptions({ transform } = {}) {
   return {
     timestamps: true,
@@ -37,17 +21,7 @@ export function baseSchemaOptions({ transform } = {}) {
   };
 }
 
-/**
- * Turns a duplicate-key driver error into a domain ConflictError.
- *
- * MongoDB reports uniqueness violations as error 11000 from deep inside the
- * driver. Without this the API would answer 500 for what is a perfectly
- * ordinary 409.
- *
- * @param {unknown} error
- * @param {string} message
- * @returns {never}
- */
+/** MongoDB reports uniqueness violations as 11000; without this they'd be 500s. */
 export function rethrowDuplicateKey(error, message) {
   if (isDuplicateKeyError(error)) {
     const field = Object.keys(error.keyPattern ?? {})[0];
@@ -56,24 +30,11 @@ export function rethrowDuplicateKey(error, message) {
   throw error;
 }
 
-/**
- * @param {unknown} error
- * @returns {boolean}
- */
 export function isDuplicateKeyError(error) {
   return Boolean(error) && typeof error === 'object' && error.code === 11000;
 }
 
-/**
- * Parses a value into an ObjectId, or returns null when it is not one.
- *
- * Repositories use this to reject a malformed id before it reaches the driver,
- * which would otherwise throw a CastError that surfaces as a 500 instead of
- * the 404 the caller deserves.
- *
- * @param {unknown} value
- * @returns {import('mongoose').Types.ObjectId | null}
- */
+/** Null for a malformed id, so the caller can 404 instead of hitting a CastError. */
 export function toObjectId(value) {
   if (value instanceof Types.ObjectId) {
     return value;
@@ -84,17 +45,7 @@ export function toObjectId(value) {
   return null;
 }
 
-/**
- * Normalises a lean document for API output.
- *
- * `.lean()` skips hydration — a meaningful saving when reading thousands of
- * chunks — but it also skips the `toJSON` transform, so the same renaming has
- * to happen explicitly.
- *
- * @template {Record<string, unknown>} T
- * @param {T | null} doc
- * @returns {(Omit<T, '_id' | '__v'> & { id: string }) | null}
- */
+/** .lean() skips the schema transform, so lean reads get the same shape here. */
 export function serialize(doc) {
   if (!doc) {
     return null;
@@ -104,10 +55,6 @@ export function serialize(doc) {
   return { id: String(_id), ...rest };
 }
 
-/**
- * @template {Record<string, unknown>} T
- * @param {T[]} docs
- */
 export function serializeMany(docs) {
   return docs.map((doc) => serialize(doc));
 }

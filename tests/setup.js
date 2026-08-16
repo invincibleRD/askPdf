@@ -1,10 +1,5 @@
-/**
- * Global test bootstrap.
- *
- * Vitest loads this before any suite. It pins the environment variables the
- * config module requires so that importing application code inside a test
- * never depends on the developer's shell or a local .env file.
- */
+// Pins the env the config module requires, so importing application code in a
+// test never depends on the developer's shell or a local .env.
 process.env.NODE_ENV = 'test';
 process.env.LOG_LEVEL ??= 'silent';
 process.env.PORT ??= '0';

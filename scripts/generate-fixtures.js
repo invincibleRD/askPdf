@@ -1,13 +1,8 @@
 /**
- * Writes the test corpus to disk as real PDF files.
+ * npm run fixtures
  *
- *   npm run fixtures
- *
- * The test suite builds these in memory and does not need the files. This
- * script exists so the same documents can be opened in a viewer, uploaded by
- * hand through curl or Postman, and used by the seed script — which makes
- * manual testing reproducible instead of dependent on whatever PDF happens to
- * be in Downloads.
+ * The suite builds these in memory; this writes them out so the same documents
+ * can be opened in a viewer, curled at the API, or used by the seed script.
  */
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
@@ -25,7 +20,6 @@ import {
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outputDir = join(projectRoot, 'fixtures', 'pdfs');
 
-/** @param {string} name @param {Buffer} buffer */
 async function write(name, buffer) {
   const path = join(outputDir, name);
   await writeFile(path, buffer);
