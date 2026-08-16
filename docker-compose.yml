@@ -1,0 +1,114 @@
+# ---------------------------------------------------------------------------
+# Local development stack.
+#
+#   docker compose up -d          # api + worker + mongo + redis
+#   docker compose logs -f worker
+#   docker compose down -v        # also drops the data volumes
+#
+# Mirrors the Kubernetes topology in deploy/k8s: the API and the worker are
+# separate services running the same image, so a bug that only shows up when
+# the two are split shows up here too.
+# ---------------------------------------------------------------------------
+
+name: askpdf
+
+x-app-env: &app-env
+  NODE_ENV: development
+  LOG_LEVEL: ${LOG_LEVEL:-debug}
+  LOG_PRETTY: 'true'
+  MONGO_URI: mongodb://mongo:27017/askpdf
+  REDIS_URL: redis://redis:6379
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-replace-me}
+  AI_PROVIDER: ${AI_PROVIDER:-gemini}
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-only-access-secret-change-me-0123456789}
+  JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-only-refresh-secret-change-me-0123456789}
+  STORAGE_DRIVER: local
+  STORAGE_LOCAL_PATH: /app/storage
+
+x-app-base: &app-base
+  build:
+    context: .
+    target: runtime
+  image: askpdf:dev
+  restart: unless-stopped
+  depends_on:
+    mongo:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  volumes:
+    # Bind-mounted source with node_modules masked, so an edit restarts the
+    # process without a rebuild.
+    - ./src:/app/src:ro
+    - documents:/app/storage
+  networks: [askpdf]
+
+services:
+  api:
+    <<: *app-base
+    container_name: askpdf-api
+    command: ['node', '--watch', 'src/entrypoints/api.js']
+    environment:
+      <<: *app-env
+      PORT: '3000'
+    ports:
+      - '${API_PORT:-3000}:3000'
+
+  worker:
+    <<: *app-base
+    container_name: askpdf-worker
+    command: ['node', '--watch', 'src/entrypoints/worker.js']
+    environment:
+      <<: *app-env
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+    # The worker serves no HTTP traffic, so the image healthcheck does not
+    # apply to it.
+    healthcheck:
+      disable: true
+
+  mongo:
+    image: mongo:7
+    container_name: askpdf-mongo
+    restart: unless-stopped
+    command: ['--bind_ip_all']
+    environment:
+      MONGO_INITDB_DATABASE: askpdf
+    ports:
+      - '${MONGO_PORT:-27017}:27017'
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks: [askpdf]
+
+  redis:
+    image: redis:7-alpine
+    container_name: askpdf-redis
+    restart: unless-stopped
+    # Jobs are durable state, not a cache: appendonly keeps a queued upload
+    # alive across a restart.
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks: [askpdf]
+
+volumes:
+  mongo-data:
+  redis-data:
+  documents:
+
+networks:
+  askpdf:
+    driver: bridge

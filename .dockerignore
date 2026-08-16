@@ -1,0 +1,17 @@
+# Everything the runtime image does not need. Note that the `test` stage does a
+# full `COPY . .`, so lint/test configuration must stay available here.
+.git
+.github
+node_modules
+coverage
+storage
+tmp
+docs
+deploy
+.env
+.env.*
+!.env.example
+Dockerfile
+docker-compose*.yml
+.dockerignore
+*.log
