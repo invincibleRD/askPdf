@@ -110,6 +110,8 @@ export const envSchema = z
     /* ---- Rate limiting -------------------------------------------------- */
     RATE_LIMIT_WINDOW_MS: intFromEnv(60_000, { min: 1_000 }),
     RATE_LIMIT_MAX: intFromEnv(120, { min: 1 }),
+    // Tighter than the rest: each attempt costs a bcrypt verification.
+    RATE_LIMIT_AUTH_MAX: intFromEnv(10, { min: 1 }),
     RATE_LIMIT_UPLOAD_MAX: intFromEnv(10, { min: 1 }),
     RATE_LIMIT_CHAT_MAX: intFromEnv(30, { min: 1 }),
 

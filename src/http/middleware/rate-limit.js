@@ -43,32 +43,20 @@ function buildLimiter({ windowMs, max, name }) {
   });
 }
 
-export function globalRateLimit() {
-  return buildLimiter({
-    windowMs: env.RATE_LIMIT_WINDOW_MS,
-    max: env.RATE_LIMIT_MAX,
-    name: 'global',
-  });
+// The max override exists so tests can drive a limiter without waiting out a
+// production-sized window.
+export function globalRateLimit({ max = env.RATE_LIMIT_MAX } = {}) {
+  return buildLimiter({ windowMs: env.RATE_LIMIT_WINDOW_MS, max, name: 'global' });
 }
 
-// Tighter: each attempt costs a bcrypt verification, so an unthrottled login
-// is both a brute-force target and a cheap DoS.
-export function authRateLimit() {
-  return buildLimiter({ windowMs: env.RATE_LIMIT_WINDOW_MS, max: 10, name: 'auth' });
+export function authRateLimit({ max = env.RATE_LIMIT_AUTH_MAX } = {}) {
+  return buildLimiter({ windowMs: env.RATE_LIMIT_WINDOW_MS, max, name: 'auth' });
 }
 
-export function uploadRateLimit() {
-  return buildLimiter({
-    windowMs: env.RATE_LIMIT_WINDOW_MS,
-    max: env.RATE_LIMIT_UPLOAD_MAX,
-    name: 'upload',
-  });
+export function uploadRateLimit({ max = env.RATE_LIMIT_UPLOAD_MAX } = {}) {
+  return buildLimiter({ windowMs: env.RATE_LIMIT_WINDOW_MS, max, name: 'upload' });
 }
 
-export function chatRateLimit() {
-  return buildLimiter({
-    windowMs: env.RATE_LIMIT_WINDOW_MS,
-    max: env.RATE_LIMIT_CHAT_MAX,
-    name: 'chat',
-  });
+export function chatRateLimit({ max = env.RATE_LIMIT_CHAT_MAX } = {}) {
+  return buildLimiter({ windowMs: env.RATE_LIMIT_WINDOW_MS, max, name: 'chat' });
 }
