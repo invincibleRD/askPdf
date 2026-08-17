@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseEnv } from '../../../src/config/env.js';
+import { DEFAULT_RETRIEVAL_MIN_SCORE } from '../../../src/config/constants.js';
 
 const baseEnv = () => ({
   MONGO_URI: 'mongodb://localhost:27017/askpdf',
@@ -16,7 +17,7 @@ describe('parseEnv', () => {
     expect(result.success).toBe(true);
     expect(result.data.PORT).toBe(8080);
     expect(result.data.METRICS_ENABLED).toBe(true);
-    expect(result.data.RETRIEVAL_MIN_SCORE).toBe(0.7);
+    expect(result.data.RETRIEVAL_MIN_SCORE).toBe(DEFAULT_RETRIEVAL_MIN_SCORE);
     expect(result.data.EMBEDDING_DIMENSIONS).toBe(768);
     expect(result.data.MAX_UPLOAD_BYTES).toBe(20 * 1024 * 1024);
   });

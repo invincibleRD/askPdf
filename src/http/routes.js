@@ -3,6 +3,7 @@ import { healthRoutes } from '../modules/health/health.routes.js';
 import { authRoutes } from '../modules/auth/auth.routes.js';
 import { documentRoutes } from '../modules/documents/document.routes.js';
 import { jobRoutes } from '../modules/jobs/job.routes.js';
+import { chatRoutes } from '../modules/chat/chat.routes.js';
 
 export const API_PREFIX = '/api/v1';
 
@@ -19,6 +20,7 @@ export function registerRoutes(app) {
   api.use('/auth', authRoutes());
   api.use('/documents', documentRoutes());
   api.use('/jobs', jobRoutes());
+  api.use('/chat', chatRoutes());
 
   app.use(API_PREFIX, api);
 }

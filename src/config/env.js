@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DEFAULT_RETRIEVAL_MIN_SCORE } from './constants.js';
 
 // Every configurable value is declared here once, and nothing else in src/
 // reads process.env directly (ESLint enforces it). An invalid environment is a
@@ -91,9 +92,8 @@ export const envSchema = z
     AI_MAX_RETRIES: intFromEnv(3, { min: 0, max: 10 }),
 
     /* ---- Retrieval ------------------------------------------------------ */
-    // Chunks below this cosine similarity never reach the model — the
-    // hallucination guard.
-    RETRIEVAL_MIN_SCORE: z.coerce.number().min(0).max(1).default(0.7),
+    // Chunks below this never reach the model — the hallucination guard.
+    RETRIEVAL_MIN_SCORE: z.coerce.number().min(0).max(1).default(DEFAULT_RETRIEVAL_MIN_SCORE),
     RETRIEVAL_TOP_K: intFromEnv(6, { min: 1, max: 50 }),
     RETRIEVAL_CANDIDATES: intFromEnv(100, { min: 10, max: 1_000 }),
     VECTOR_INDEX_NAME: z.string().min(1).default('chunk_embedding_index'),

@@ -13,17 +13,15 @@
 name: askpdf
 
 x-app-env: &app-env
+  # Everything comes from .env so the containers run the same configuration the
+  # host tooling does; only the service addresses differ.
   NODE_ENV: development
-  LOG_LEVEL: ${LOG_LEVEL:-debug}
-  LOG_PRETTY: 'true'
+  # JSON logs, as in production — and pino-pretty isn't in the runtime image.
+  LOG_PRETTY: 'false'
   MONGO_URI: mongodb://mongo:27017/askpdf
   REDIS_URL: redis://redis:6379
-  GEMINI_API_KEY: ${GEMINI_API_KEY:-replace-me}
-  AI_PROVIDER: ${AI_PROVIDER:-gemini}
-  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-QaVt2zcrI+HruNBi5VZpGO3q3NaoMEbKTc7FBDv0bVoOgGOi}
-  JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-NljiyByJYVKubp1/wKIwaTDAdmZFa8bk678PU07C1YlfQ6uy}
-  STORAGE_DRIVER: local
   STORAGE_LOCAL_PATH: /app/storage
+  GCS_KEY_FILE: /app/.secrets/${GCS_KEY_FILENAME:-gcs-key.json}
 
 x-app-base: &app-base
   build:
@@ -31,6 +29,8 @@ x-app-base: &app-base
     target: runtime
   image: askpdf:dev
   restart: unless-stopped
+  env_file:
+    - .env
   depends_on:
     mongo:
       condition: service_healthy
@@ -40,6 +40,7 @@ x-app-base: &app-base
     # Bind-mounted source with node_modules masked, so an edit restarts the
     # process without a rebuild.
     - ./src:/app/src:ro
+    - ./.secrets:/app/.secrets:ro
     - documents:/app/storage
   networks: [askpdf]
 

@@ -189,6 +189,53 @@ Run the worker separately from the API:
 npm run dev:worker
 ```
 
+## Answering questions
+
+A question is embedded, ranked against the document's chunks by cosine
+similarity, and only passages clearing `RETRIEVAL_MIN_SCORE` are allowed into
+the prompt. If nothing clears it the service returns `422 NO_RELEVANT_CONTEXT`
+rather than letting the model improvise.
+
+```bash
+curl -X POST localhost:3000/api/v1/chat \
+  -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"documentId":"...","question":"Which region contributed the most revenue?"}'
+```
+
+```json
+{
+  "answer": "The Nordic region contributed the most revenue this quarter with 14.6 million euros [1].",
+  "bestScore": 0.7203,
+  "citations": [
+    { "chunkIndex": 0, "pageStart": 1, "pageEnd": 3, "score": 0.7203, "snippet": "..." }
+  ]
+}
+```
+
+`/chat/stream` sends the same thing as SSE: a `citations` event first — so a
+client can render sources while the answer is still arriving — then `delta`
+events, then `done`.
+
+### On the threshold
+
+`0.57` is not a guess. Measured across the test corpus with
+`gemini-embedding-001`, off-topic questions peaked at **0.541** and on-topic
+questions bottomed at **0.605**; the floor sits in that gap. It is model- and
+corpus-dependent — an earlier value of 0.7 was falsely refusing five valid
+questions once the embedding model changed.
+
+`tests/integration/chat/retrieval-quality.test.js` re-measures that separation
+against live Gemini and fails if it drifts:
+
+```bash
+RUN_AI_TESTS=1 npm test
+```
+
+That suite is opt-in because it needs an API key and spends quota. Everything
+else runs against a deterministic fake provider — good enough to prove the
+wiring, not good enough to prove retrieval quality, which is exactly why the
+live suite exists.
+
 ## Storage
 
 `STORAGE_DRIVER=local` writes to `STORAGE_LOCAL_PATH` for development.
