@@ -1,3 +1,4 @@
+import { AsyncResource } from 'node:async_hooks';
 import busboy from 'busboy';
 import { MAX_UPLOAD_FIELD_BYTES, PDF_MAGIC_BYTES, PDF_MIME_TYPE } from '../../config/constants.js';
 import { env } from '../../config/env.js';
@@ -21,8 +22,14 @@ const MAGIC = Buffer.from(PDF_MAGIC_BYTES);
  */
 export function uploadSingle({ field = 'file', maxBytes = env.MAX_UPLOAD_BYTES } = {}) {
   return function uploadMiddleware(req, _res, next) {
+    // `next` is called from a stream event, and an EventEmitter callback runs
+    // in the *emitter's* async context — `req` predates this request's
+    // AsyncLocalStorage scope, so the correlation id would be lost from here
+    // on. Binding pins the continuation to the scope we are in now.
+    const continueChain = AsyncResource.bind(next);
+
     if (!req.is('multipart/form-data')) {
-      next(new UnsupportedMediaTypeError('Expected a multipart/form-data upload'));
+      continueChain(new UnsupportedMediaTypeError('Expected a multipart/form-data upload'));
       return;
     }
 
@@ -38,7 +45,7 @@ export function uploadSingle({ field = 'file', maxBytes = env.MAX_UPLOAD_BYTES }
         },
       });
     } catch (error) {
-      next(new ValidationError(`Malformed multipart request: ${error.message}`));
+      continueChain(new ValidationError(`Malformed multipart request: ${error.message}`));
       return;
     }
 
@@ -59,7 +66,7 @@ export function uploadSingle({ field = 'file', maxBytes = env.MAX_UPLOAD_BYTES }
       // Drain rather than destroy: cutting the socket mid-body makes the
       // client see a connection reset instead of the 413 we are sending.
       req.resume();
-      next(error);
+      continueChain(error);
     };
 
     parser.on('field', (name, value) => {
@@ -132,7 +139,7 @@ export function uploadSingle({ field = 'file', maxBytes = env.MAX_UPLOAD_BYTES }
         size: buffer.length,
       };
       req.body = { ...fields, ...req.body };
-      next();
+      continueChain();
     });
 
     req.pipe(parser);

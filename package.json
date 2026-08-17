@@ -16,6 +16,7 @@
     "dev:worker": "node --env-file-if-exists=.env --watch src/entrypoints/worker.js",
     "db:indexes": "node --env-file-if-exists=.env scripts/sync-indexes.js",
     "fixtures": "node scripts/generate-fixtures.js",
+    "gcs:check": "node --env-file-if-exists=.env scripts/check-gcs.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{js,json,md,yaml,yml}\"",
