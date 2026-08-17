@@ -83,8 +83,8 @@ export const envSchema = z
     /* ---- AI provider ---------------------------------------------------- */
     AI_PROVIDER: z.enum(['gemini', 'fake']).default('gemini'),
     GEMINI_API_KEY: z.string().min(1),
-    GEMINI_EMBEDDING_MODEL: z.string().min(1).default('text-embedding-004'),
-    GEMINI_CHAT_MODEL: z.string().min(1).default('gemini-2.0-flash'),
+    GEMINI_EMBEDDING_MODEL: z.string().min(1).default('gemini-embedding-001'),
+    GEMINI_CHAT_MODEL: z.string().min(1).default('gemini-2.5-flash'),
     EMBEDDING_DIMENSIONS: intFromEnv(768, { min: 64, max: 4_096 }),
     EMBEDDING_BATCH_SIZE: intFromEnv(32, { min: 1, max: 100 }),
     AI_REQUEST_TIMEOUT_MS: intFromEnv(60_000, { min: 1_000 }),
