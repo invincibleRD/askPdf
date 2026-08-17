@@ -56,6 +56,12 @@ export async function dequeue(client, timeoutSec = env.QUEUE_BLOCK_TIMEOUT_SEC) 
   }
 }
 
+/** Returns an already-parsed payload to the front of the queue, unchanged. */
+export async function requeuePayload(payload) {
+  await getRedis().rpush(queueKeys.ready(), JSON.stringify(payload));
+  log.warn({ jobId: payload.jobId }, 'job returned to the queue during shutdown');
+}
+
 /**
  * Schedules a retry.
  *

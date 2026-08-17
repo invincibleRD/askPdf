@@ -20,6 +20,7 @@ import { jobOutcomes } from '../infra/metrics/registry.js';
 import {
   dequeue,
   enqueue,
+  requeuePayload,
   promoteDueRetries,
   scheduleRetry,
   sendToDeadLetter,
@@ -159,6 +160,14 @@ export function createConsumer({
 
         if (!payload) {
           continue;
+        }
+
+        // BRPOP removed the message, so a job popped after shutdown began would
+        // be lost: nothing left in Redis, and still QUEUED in Mongo, which the
+        // abandoned-job reaper does not look at. Put it back and stop.
+        if (!running) {
+          await requeuePayload(payload);
+          break;
         }
 
         inFlight += 1;
