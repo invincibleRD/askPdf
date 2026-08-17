@@ -7,6 +7,7 @@ import { getRequestId } from '../../core/request-context.js';
 import { getStorage } from '../../infra/storage/index.js';
 import { buildObjectKey } from '../../infra/storage/object-key.js';
 import { createJob, findLiveJobForDocument } from '../jobs/job.repository.js';
+import { enqueue } from '../../queue/queue.js';
 import { deleteChunksForDocument } from './chunk.repository.js';
 import {
   createDocument,
@@ -65,12 +66,19 @@ export async function ingestUpload({ ownerId, file }) {
     throw error;
   }
 
-  const { job } = await createJob({
+  const requestId = getRequestId();
+  const { job, created } = await createJob({
     documentId: document.id,
     ownerId,
     maxAttempts: env.QUEUE_MAX_ATTEMPTS,
-    requestId: getRequestId(),
+    requestId,
   });
+
+  // Only publish for a job we actually created — enqueueing an existing one
+  // would hand the same document to a second worker.
+  if (created) {
+    await enqueue({ jobId: job.id, documentId: document.id, ownerId, requestId });
+  }
 
   log.info(
     { documentId: document.id, jobId: job.id, bytes: file.size, storageKey },

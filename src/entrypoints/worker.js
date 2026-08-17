@@ -5,6 +5,9 @@ import { registerShutdownHandlers } from '../core/shutdown.js';
 import { connectMongo } from '../infra/mongo/connection.js';
 import { getRedis } from '../infra/redis/connection.js';
 import { getStorage } from '../infra/storage/index.js';
+import { getAiProvider } from '../infra/ai/index.js';
+import { createConsumer } from '../queue/consumer.js';
+import { startReaper } from '../queue/reaper.js';
 
 const log = createLogger('entrypoint:worker');
 
@@ -16,21 +19,25 @@ async function main() {
 
   await connectMongo();
   getRedis();
-  // Eager, so readiness reports storage from the first probe rather than
-  // only after something happens to use it.
   getStorage();
+  getAiProvider();
+
+  const consumer = createConsumer();
+  const stopReaper = startReaper();
 
   registerShutdownHandlers({
     forceExitMs: env.SHUTDOWN_TIMEOUT_MS + 5_000,
     onShutdown: async () => {
+      // Stop claiming work and let the in-flight job reach a checkpoint before
+      // the clients it depends on are closed.
+      stopReaper();
+      await consumer.stop();
       await closeResources();
     },
   });
 
-  log.info('worker ready');
-
-  // The queue consumer takes over keeping the loop alive.
-  await new Promise(() => {});
+  consumer.start();
+  log.info({ workerId: consumer.workerId }, 'worker ready');
 }
 
 main().catch((error) => {
