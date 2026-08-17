@@ -2,7 +2,8 @@ import { GoogleGenAI } from '@google/genai';
 import { env } from '../../config/env.js';
 import { createLogger } from '../../core/logger.js';
 import { UpstreamError } from '../../core/errors.js';
-import { withRetry, withTimeout } from './retry.js';
+import { aiErrors, aiRequestDuration, embeddedTexts } from '../metrics/registry.js';
+import { isRetryableAiError, withRetry, withTimeout } from './retry.js';
 
 const log = createLogger('ai:gemini');
 
@@ -29,19 +30,25 @@ export function createGeminiProvider({
       return [];
     }
 
-    const response = await withRetry(
-      () =>
-        withTimeout(
-          client.models.embedContent({
-            model: embeddingModel,
-            contents: texts,
-            config: { taskType, outputDimensionality: dimensions },
-          }),
-          env.AI_REQUEST_TIMEOUT_MS,
-          'embedContent',
-        ),
-      { label: 'embedContent' },
+    const stopTimer = aiRequestDuration.startTimer({ provider: 'gemini', operation: 'embed' });
+
+    const response = await measure('embed', () =>
+      withRetry(
+        () =>
+          withTimeout(
+            client.models.embedContent({
+              model: embeddingModel,
+              contents: texts,
+              config: { taskType, outputDimensionality: dimensions },
+            }),
+            env.AI_REQUEST_TIMEOUT_MS,
+            'embedContent',
+          ),
+        { label: 'embedContent' },
+      ),
     );
+    stopTimer();
+    embeddedTexts.inc(texts.length);
 
     // gemini-embedding-001 only returns a unit vector at its native 3072
     // dimensions; a truncated output has to be re-normalised or cosine
@@ -69,22 +76,27 @@ export function createGeminiProvider({
 
   /** @param {{ system?: string, prompt: string, temperature?: number }} params */
   async function generate({ system, prompt, temperature = 0.2 }) {
-    const response = await withRetry(
-      () =>
-        withTimeout(
-          client.models.generateContent({
-            model: chatModel,
-            contents: prompt,
-            config: {
-              temperature,
-              ...(system ? { systemInstruction: system } : {}),
-            },
-          }),
-          env.AI_REQUEST_TIMEOUT_MS,
-          'generateContent',
-        ),
-      { label: 'generateContent' },
+    const stopTimer = aiRequestDuration.startTimer({ provider: 'gemini', operation: 'generate' });
+
+    const response = await measure('generate', () =>
+      withRetry(
+        () =>
+          withTimeout(
+            client.models.generateContent({
+              model: chatModel,
+              contents: prompt,
+              config: {
+                temperature,
+                ...(system ? { systemInstruction: system } : {}),
+              },
+            }),
+            env.AI_REQUEST_TIMEOUT_MS,
+            'generateContent',
+          ),
+        { label: 'generateContent' },
+      ),
     );
+    stopTimer();
 
     return response.text ?? '';
   }
@@ -132,6 +144,20 @@ export function createGeminiProvider({
     generateStream,
     healthCheck,
   };
+}
+
+/** Counts a failure by operation before rethrowing, so errors stay visible. */
+async function measure(operation, run) {
+  try {
+    return await run();
+  } catch (error) {
+    aiErrors.inc({
+      provider: 'gemini',
+      operation,
+      retryable: String(isRetryableAiError(error.cause ?? error)),
+    });
+    throw error;
+  }
 }
 
 function normalise(vector) {

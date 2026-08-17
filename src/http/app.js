@@ -1,6 +1,7 @@
 import express from 'express';
 import { env } from '../config/env.js';
 import { correlationId } from './middleware/correlation-id.js';
+import { metricsMiddleware } from './middleware/metrics.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { globalRateLimit } from './middleware/rate-limit.js';
 import { requestLogger } from './middleware/request-logger.js';
@@ -20,6 +21,8 @@ export function createApp() {
 
   app.use(correlationId());
   app.use(requestLogger());
+  // Before the rest of the pipeline, so rejected requests are measured too.
+  app.use(metricsMiddleware());
   app.use(securityHeaders());
   app.use(corsPolicy());
   app.use(requestTimeout(env.REQUEST_TIMEOUT_MS));
