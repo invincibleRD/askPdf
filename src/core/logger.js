@@ -25,17 +25,35 @@ const REDACTED_PATHS = [
   'S3_SECRET_ACCESS_KEY',
 ];
 
-const transport =
-  env.LOG_PRETTY && !isProduction
-    ? {
-        target: 'pino-pretty',
-        options: {
-          colorize: true,
-          translateTime: 'SYS:HH:MM:ss.l',
-          ignore: 'pid,hostname,service',
-        },
-      }
-    : undefined;
+/**
+ * pino-pretty is a devDependency, so it is absent from the runtime image built
+ * with --omit=dev. Resolving it first means LOG_PRETTY=true degrades to JSON
+ * instead of crashing the process at boot — a logging preference must never be
+ * able to take the service down.
+ */
+function resolvePrettyTransport() {
+  if (!env.LOG_PRETTY || isProduction) {
+    return undefined;
+  }
+
+  try {
+    import.meta.resolve('pino-pretty');
+  } catch {
+    process.stderr.write('LOG_PRETTY is set but pino-pretty is not installed; using JSON logs\n');
+    return undefined;
+  }
+
+  return {
+    target: 'pino-pretty',
+    options: {
+      colorize: true,
+      translateTime: 'SYS:HH:MM:ss.l',
+      ignore: 'pid,hostname,service',
+    },
+  };
+}
+
+const transport = resolvePrettyTransport();
 
 export const logger = pino({
   level: env.LOG_LEVEL,
