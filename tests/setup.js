@@ -16,6 +16,12 @@ const redisDb = (workerId % 15) + 1;
 process.env.MONGO_URI ??= 'mongodb://127.0.0.1:27017/askpdf-test';
 process.env.REDIS_URL = `redis://127.0.0.1:6379/${String(redisDb)}`;
 
+// The fake embedding provider is bag-of-words: its on-topic and off-topic
+// score distributions overlap, so no threshold separates them. Suites using it
+// lower the floor to exercise the plumbing; the real 0.7 guard is proven in
+// tests/integration/chat/retrieval-quality.test.js against live Gemini.
+process.env.RETRIEVAL_MIN_SCORE ??= '0.1';
+
 // Suites drive many requests through one app instance; the limiter itself has
 // a dedicated test that sets its own bounds.
 process.env.RATE_LIMIT_MAX ??= '100000';

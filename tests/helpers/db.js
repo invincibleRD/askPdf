@@ -19,14 +19,20 @@ export function testMongoUri() {
   return uri.toString();
 }
 
-export function useTestDatabase() {
+/**
+ * @param {{ clearBetweenTests?: boolean }} [options] Set false when a suite
+ *   builds an expensive fixture once in beforeAll and only reads it.
+ */
+export function useTestDatabase({ clearBetweenTests = true } = {}) {
   beforeAll(async () => {
     await connectMongo({ uri: testMongoUri() });
     await syncTestIndexes();
   });
 
   afterEach(async () => {
-    await clearCollections();
+    if (clearBetweenTests) {
+      await clearCollections();
+    }
   });
 
   afterAll(async () => {

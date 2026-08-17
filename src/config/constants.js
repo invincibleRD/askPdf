@@ -71,3 +71,13 @@ export const PDF_MIME_TYPE = 'application/pdf';
 
 /** Cap on non-file multipart fields, so a huge text part can't be smuggled in. */
 export const MAX_UPLOAD_FIELD_BYTES = 8 * 1024;
+
+/**
+ * Production similarity floor for retrieval.
+ *
+ * Calibrated against the test corpus with gemini-embedding-001: off-topic
+ * questions topped out at 0.541 and on-topic bottomed at 0.605, so this sits
+ * in the measured gap. Model- and corpus-dependent — re-measure before
+ * trusting it on a different embedder.
+ */
+export const DEFAULT_RETRIEVAL_MIN_SCORE = 0.57;
