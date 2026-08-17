@@ -155,6 +155,40 @@ curl -X POST localhost:3000/api/v1/documents \
   -F file=@fixtures/pdfs/espresso-machine-manual.pdf
 ```
 
+## Ingestion pipeline
+
+The worker consumes the queue and runs five stages per document:
+
+| Stage      | What happens                                              |
+| ---------- | --------------------------------------------------------- |
+| `parse`    | Extract text per page via pdf.js, plus title metadata     |
+| `chunk`    | Split at paragraph then sentence boundaries, with overlap |
+| `embed`    | Batch through Gemini into 768-dimension vectors           |
+| `index`    | Write chunks + vectors to MongoDB                         |
+| `finalize` | Mark ready, record page and chunk counts                  |
+
+Progress is written to both MongoDB and a Redis hash, so polling `GET /jobs/:id`
+never touches the database primary.
+
+**Failures.** A transient failure (rate limit, timeout) is retried with
+exponential backoff and jitter via a delayed sorted set. A permanent one — an
+encrypted PDF, a scan with no text layer — skips retries entirely and goes
+straight to the dead-letter queue, because burning three attempts on a file
+that cannot improve just costs worker capacity. Either way the pipeline deletes
+its own partial chunks first, so a retry starts clean rather than colliding
+with the unique `{documentId, index}` index.
+
+**Crashes.** A worker killed mid-job leaves the job `active` with a heartbeat
+that stops advancing. A reaper on every worker finds those, clears any partial
+chunks and requeues them — preserving the attempt count, so retries stay
+bounded.
+
+Run the worker separately from the API:
+
+```bash
+npm run dev:worker
+```
+
 ## Storage
 
 `STORAGE_DRIVER=local` writes to `STORAGE_LOCAL_PATH` for development.
