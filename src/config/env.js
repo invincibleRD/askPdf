@@ -61,14 +61,16 @@ export const envSchema = z
     JOB_STATUS_TTL_SEC: intFromEnv(86_400, { min: 60 }),
 
     /* ---- Storage -------------------------------------------------------- */
-    STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+    STORAGE_DRIVER: z.enum(['local', 'gcs']).default('local'),
     STORAGE_LOCAL_PATH: z.string().default('./storage'),
-    S3_BUCKET: z.string().optional(),
-    S3_REGION: z.string().optional(),
-    S3_ENDPOINT: z.string().url().optional(),
-    S3_ACCESS_KEY_ID: z.string().optional(),
-    S3_SECRET_ACCESS_KEY: z.string().optional(),
-    S3_FORCE_PATH_STYLE: booleanFromEnv(false),
+    GCS_BUCKET: z.string().optional(),
+    GCS_PREFIX: z.string().default('pdf'),
+    GCS_PROJECT_ID: z.string().optional(),
+    // Path to a service account JSON. Omit to use Application Default
+    // Credentials, which is what a GKE workload identity supplies.
+    GCS_KEY_FILE: z.string().optional(),
+    // Signed URL lifetime for handing a document back to a client directly.
+    GCS_SIGNED_URL_TTL_SEC: intFromEnv(900, { min: 60, max: 604_800 }),
 
     /* ---- Uploads -------------------------------------------------------- */
     MAX_UPLOAD_BYTES: intFromEnv(20 * MEGABYTE, { min: MEGABYTE }),
@@ -137,16 +139,12 @@ export const envSchema = z
       });
     }
 
-    if (env.STORAGE_DRIVER === 's3') {
-      for (const key of ['S3_BUCKET', 'S3_REGION']) {
-        if (!env[key]) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [key],
-            message: `${key} is required when STORAGE_DRIVER is "s3"`,
-          });
-        }
-      }
+    if (env.STORAGE_DRIVER === 'gcs' && !env.GCS_BUCKET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['GCS_BUCKET'],
+        message: 'GCS_BUCKET is required when STORAGE_DRIVER is "gcs"',
+      });
     }
 
     if (env.NODE_ENV === 'production') {

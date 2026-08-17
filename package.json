@@ -16,6 +16,7 @@
     "dev:worker": "node --env-file-if-exists=.env --watch src/entrypoints/worker.js",
     "db:indexes": "node --env-file-if-exists=.env scripts/sync-indexes.js",
     "fixtures": "node scripts/generate-fixtures.js",
+    "gcs:check": "node --env-file-if-exists=.env scripts/check-gcs.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{js,json,md,yaml,yml}\"",
@@ -28,7 +29,9 @@
     "verify": "npm run format:check && npm run lint && npm run test"
   },
   "dependencies": {
+    "@google-cloud/storage": "^8.0.0",
     "bcryptjs": "^3.0.3",
+    "busboy": "^1.6.0",
     "cors": "^2.8.6",
     "express": "^5.1.0",
     "express-rate-limit": "^8.6.2",

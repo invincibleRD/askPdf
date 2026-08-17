@@ -49,12 +49,22 @@ describe('parseEnv', () => {
     expect(result.error).toContain('CHUNK_OVERLAP_TOKENS');
   });
 
-  it('requires bucket and region once the S3 driver is selected', () => {
-    const result = parseEnv({ ...baseEnv(), STORAGE_DRIVER: 's3' });
+  it('requires a bucket once the GCS driver is selected', () => {
+    const result = parseEnv({ ...baseEnv(), STORAGE_DRIVER: 'gcs' });
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain('S3_BUCKET');
-    expect(result.error).toContain('S3_REGION');
+    expect(result.error).toContain('GCS_BUCKET');
+  });
+
+  it('accepts the GCS driver with a bucket, defaulting the prefix to pdf', () => {
+    const result = parseEnv({
+      ...baseEnv(),
+      STORAGE_DRIVER: 'gcs',
+      GCS_BUCKET: 'ultron-bucket-gcp',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data.GCS_PREFIX).toBe('pdf');
   });
 });
 

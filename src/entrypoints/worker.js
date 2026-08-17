@@ -4,6 +4,7 @@ import { createLogger } from '../core/logger.js';
 import { registerShutdownHandlers } from '../core/shutdown.js';
 import { connectMongo } from '../infra/mongo/connection.js';
 import { getRedis } from '../infra/redis/connection.js';
+import { getStorage } from '../infra/storage/index.js';
 
 const log = createLogger('entrypoint:worker');
 
@@ -15,6 +16,9 @@ async function main() {
 
   await connectMongo();
   getRedis();
+  // Eager, so readiness reports storage from the first probe rather than
+  // only after something happens to use it.
+  getStorage();
 
   registerShutdownHandlers({
     forceExitMs: env.SHUTDOWN_TIMEOUT_MS + 5_000,

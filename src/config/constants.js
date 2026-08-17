@@ -68,3 +68,6 @@ export const REQUEST_ID_HEADER = 'x-request-id';
 export const PDF_MAGIC_BYTES = Object.freeze([0x25, 0x50, 0x44, 0x46, 0x2d]);
 
 export const PDF_MIME_TYPE = 'application/pdf';
+
+/** Cap on non-file multipart fields, so a huge text part can't be smuggled in. */
+export const MAX_UPLOAD_FIELD_BYTES = 8 * 1024;
