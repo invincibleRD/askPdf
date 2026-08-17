@@ -129,6 +129,55 @@ Required: `MONGO_URI`, `REDIS_URL`, `GEMINI_API_KEY`, `JWT_ACCESS_SECRET`,
 | `npm run lint`          | ESLint                                       |
 | `npm run verify`        | Format check + lint + tests, as CI runs them |
 
+## Endpoints
+
+| Method   | Path                             | Notes                                           |
+| -------- | -------------------------------- | ----------------------------------------------- |
+| `POST`   | `/api/v1/auth/register`          | Returns an access + refresh pair                |
+| `POST`   | `/api/v1/auth/login`             |                                                 |
+| `POST`   | `/api/v1/auth/refresh`           | Single use — the presented token is revoked     |
+| `POST`   | `/api/v1/auth/logout`            | `everywhere: true` kills every session          |
+| `POST`   | `/api/v1/auth/change-password`   | Invalidates all existing sessions               |
+| `GET`    | `/api/v1/auth/me`                |                                                 |
+| `POST`   | `/api/v1/documents`              | Multipart upload, returns **202** with a job id |
+| `GET`    | `/api/v1/documents`              | Keyset paginated                                |
+| `GET`    | `/api/v1/documents/:id`          |                                                 |
+| `GET`    | `/api/v1/documents/:id/download` | Signed URL                                      |
+| `DELETE` | `/api/v1/documents/:id`          | Removes chunks and the stored object too        |
+| `GET`    | `/api/v1/jobs/:id`               | Poll ingestion progress                         |
+| `GET`    | `/api/v1/jobs`                   |                                                 |
+
+Uploading:
+
+```bash
+curl -X POST localhost:3000/api/v1/documents \
+  -H "authorization: Bearer $TOKEN" \
+  -F file=@fixtures/pdfs/espresso-machine-manual.pdf
+```
+
+## Storage
+
+`STORAGE_DRIVER=local` writes to `STORAGE_LOCAL_PATH` for development.
+`STORAGE_DRIVER=gcs` writes to a Google Cloud Storage bucket under the
+`GCS_PREFIX` folder.
+
+Object keys are date-first so a bucket listing sorts chronologically, and the
+client's filename is slugged rather than used directly:
+
+```
+pdf/20260816-174502-a1b2c3d4-annual-report.pdf
+```
+
+Credentials come from `GCS_KEY_FILE` if set, otherwise Application Default
+Credentials — which is what a GKE workload identity supplies, so production
+needs no key file on disk.
+
+Verify the bucket is reachable before pointing the API at it:
+
+```bash
+npm run gcs:check
+```
+
 ## Health endpoints
 
 | Endpoint   | Meaning                                                          |
