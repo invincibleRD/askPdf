@@ -8,6 +8,7 @@ import { getStorage } from '../../infra/storage/index.js';
 import { buildObjectKey } from '../../infra/storage/object-key.js';
 import { createJob, findLiveJobForDocument } from '../jobs/job.repository.js';
 import { enqueue } from '../../queue/queue.js';
+import { documentsUploaded } from '../../infra/metrics/registry.js';
 import { deleteChunksForDocument } from './chunk.repository.js';
 import {
   createDocument,
@@ -34,6 +35,7 @@ export async function ingestUpload({ ownerId, file }) {
   // it twice.
   const existing = await findDocumentByContentHash(ownerId, contentHash);
   if (existing) {
+    documentsUploaded.inc({ outcome: 'duplicate' });
     log.info({ documentId: existing.id, ownerId }, 'duplicate upload, reusing document');
 
     const job = await findLiveJobForDocument(existing.id);
@@ -80,6 +82,7 @@ export async function ingestUpload({ ownerId, file }) {
     await enqueue({ jobId: job.id, documentId: document.id, ownerId, requestId });
   }
 
+  documentsUploaded.inc({ outcome: 'accepted' });
   log.info(
     { documentId: document.id, jobId: job.id, bytes: file.size, storageKey },
     'document accepted for processing',

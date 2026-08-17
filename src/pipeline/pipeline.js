@@ -10,6 +10,12 @@ import {
   markDocumentReady,
   updateDocumentStage,
 } from '../modules/documents/document.repository.js';
+import {
+  chunksIndexed,
+  pipelineDuration,
+  pipelineFailures,
+  pipelineStageDuration,
+} from '../infra/metrics/registry.js';
 import { chunkPages } from './chunk.js';
 import { parsePdf } from './parse.js';
 
@@ -38,8 +44,23 @@ export async function runPipeline({ documentId, ownerId, storageKey }, { onStage
     return { skipped: true };
   }
 
+  // Each stage is timed by closing out the previous one on entry, so the
+  // histogram reflects real stage boundaries rather than wall clock guesses.
+  let currentStage = null;
+  let stageStartedAt = 0;
+
+  const closeStage = () => {
+    if (currentStage) {
+      pipelineStageDuration.observe({ stage: currentStage }, (Date.now() - stageStartedAt) / 1000);
+    }
+  };
+
   const enter = async (stage) => {
     throwIfAborted(signal);
+    closeStage();
+    currentStage = stage;
+    stageStartedAt = Date.now();
+
     await updateDocumentStage(documentId, stage);
     await onStage?.(stage);
     log.debug({ documentId, stage }, 'stage started');
@@ -92,7 +113,11 @@ export async function runPipeline({ documentId, ownerId, storageKey }, { onStage
       ...(title ? { title } : {}),
     });
 
+    closeStage();
     const durationMs = Date.now() - startedAt;
+    chunksIndexed.inc(chunks.length);
+    pipelineDuration.observe({ outcome: 'success' }, durationMs / 1000);
+
     log.info(
       { documentId, pageCount, chunks: chunks.length, durationMs },
       'document ingested successfully',
@@ -100,7 +125,14 @@ export async function runPipeline({ documentId, ownerId, storageKey }, { onStage
 
     return { skipped: false, document, pageCount, chunkCount: chunks.length, durationMs };
   } catch (error) {
-    await compensate(documentId, error);
+    closeStage();
+    pipelineDuration.observe({ outcome: 'failure' }, (Date.now() - startedAt) / 1000);
+    pipelineFailures.inc({
+      stage: currentStage ?? 'unknown',
+      retryable: String(error?.retryable !== false),
+    });
+
+    await compensate(documentId, { ...error, stage: currentStage, message: error?.message });
     throw error;
   }
 }

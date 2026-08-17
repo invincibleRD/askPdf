@@ -1,6 +1,10 @@
 import { env } from '../config/env.js';
 import { createLogger } from '../core/logger.js';
 import { getRedis } from '../infra/redis/connection.js';
+import {
+  queueDepth as queueDepthGauge,
+  registerScrapeCollector,
+} from '../infra/metrics/registry.js';
 import { queueKeys } from './keys.js';
 
 const log = createLogger('queue');
@@ -50,6 +54,12 @@ export async function dequeue(client, timeoutSec = env.QUEUE_BLOCK_TIMEOUT_SEC) 
     await getRedis().lpush(queueKeys.dead(), payload);
     return null;
   }
+}
+
+/** Returns an already-parsed payload to the front of the queue, unchanged. */
+export async function requeuePayload(payload) {
+  await getRedis().rpush(queueKeys.ready(), JSON.stringify(payload));
+  log.warn({ jobId: payload.jobId }, 'job returned to the queue during shutdown');
 }
 
 /**
@@ -160,3 +170,13 @@ export async function drainQueue() {
   const redis = getRedis();
   await redis.del(queueKeys.ready(), queueKeys.delayed(), queueKeys.dead());
 }
+
+// Read when Prometheus asks rather than pushed on every enqueue: a gauge
+// updated locally drifts the moment another process consumes a job.
+registerScrapeCollector(async () => {
+  const { ready, delayed, dead } = await queueDepth();
+
+  queueDepthGauge.set({ state: 'ready' }, ready);
+  queueDepthGauge.set({ state: 'delayed' }, delayed);
+  queueDepthGauge.set({ state: 'dead' }, dead);
+});

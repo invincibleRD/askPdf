@@ -3,7 +3,11 @@ import { env } from '../config/env.js';
 import { createLogger } from '../core/logger.js';
 import { deleteChunksForDocument } from '../modules/documents/chunk.repository.js';
 import { markDocumentFailed } from '../modules/documents/document.repository.js';
-import { findAbandonedJobs, requeueJob } from '../modules/jobs/job.repository.js';
+import {
+  findAbandonedJobs,
+  findStuckQueuedJobs,
+  requeueJob,
+} from '../modules/jobs/job.repository.js';
 import { requeueExistingJob } from './consumer.js';
 import { setJobStatus } from './queue.js';
 
@@ -72,6 +76,23 @@ export async function reapAbandonedJobs({
 }
 
 /**
+ * Re-enqueues jobs whose queue message was lost.
+ *
+ * The graceful path puts a popped job back, but a SIGKILL between the pop and
+ * the claim cannot. Without this the document waits forever.
+ */
+export async function reapStuckQueuedJobs({ olderThanMs = 120_000, limit = 50 } = {}) {
+  const stuck = await findStuckQueuedJobs(olderThanMs, limit);
+
+  for (const job of stuck) {
+    await requeueExistingJob(job.id);
+    log.warn({ jobId: job.id, documentId: String(job.documentId) }, 'stuck queued job re-enqueued');
+  }
+
+  return stuck.length;
+}
+
+/**
  * Runs the reaper on an interval.
  *
  * Every worker runs one. They race harmlessly: `requeueJob` is a conditional
@@ -79,7 +100,7 @@ export async function reapAbandonedJobs({
  */
 export function startReaper({ intervalMs = 60_000 } = {}) {
   const timer = setInterval(() => {
-    reapAbandonedJobs().catch((error) => {
+    Promise.all([reapAbandonedJobs(), reapStuckQueuedJobs()]).catch((error) => {
       log.error({ err: error }, 'reaper pass failed');
     });
   }, intervalMs);

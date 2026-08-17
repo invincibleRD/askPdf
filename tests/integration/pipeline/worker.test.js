@@ -11,7 +11,7 @@ import { createFakeProvider, setAiProvider } from '../../../src/infra/ai/index.j
 import { getRedis } from '../../../src/infra/redis/connection.js';
 import { createConsumer } from '../../../src/queue/consumer.js';
 import { drainQueue, getJobStatus, queueDepth } from '../../../src/queue/queue.js';
-import { reapAbandonedJobs } from '../../../src/queue/reaper.js';
+import { reapAbandonedJobs, reapStuckQueuedJobs } from '../../../src/queue/reaper.js';
 import { buildCorpusPdf, buildImageOnlyPdf } from '../../fixtures/pdf-builder.js';
 import { CORPUS } from '../../fixtures/corpus.js';
 import { DocumentStatus, JobStatus } from '../../../src/config/constants.js';
@@ -54,7 +54,9 @@ function upload(definition, token = owner.tokens.accessToken) {
  * `until` matters for the retry case: a transient failure sets FAILED before
  * the retry runs, so "anything but processing" would return too early.
  */
-async function waitForStatus(documentId, token, { timeoutMs = 20_000, until } = {}) {
+// Generous because the whole suite runs in parallel forks; under CPU
+// contention a real ingestion legitimately takes far longer than it does alone.
+async function waitForStatus(documentId, token, { timeoutMs = 45_000, until } = {}) {
   const deadline = Date.now() + timeoutMs;
   const settled = until ? [until] : [DocumentStatus.READY, DocumentStatus.FAILED];
   let last;
@@ -70,7 +72,13 @@ async function waitForStatus(documentId, token, { timeoutMs = 20_000, until } = 
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
 
-  throw new Error(`Document stuck at "${last?.status}" after ${String(timeoutMs)}ms`);
+  const job = await Job.findOne({ documentId }).lean();
+  const depth = await queueDepth();
+  throw new Error(
+    `Document stuck at "${last?.status}" after ${String(timeoutMs)}ms. ` +
+      `job=${JSON.stringify({ status: job?.status, attempts: job?.attempts, claimedBy: job?.claimedBy })} ` +
+      `queue=${JSON.stringify(depth)}`,
+  );
 }
 
 describe('end to end ingestion', () => {
@@ -204,7 +212,7 @@ describe('failure handling', () => {
     consumer.start();
 
     const document = await waitForStatus(created.body.document.id, owner.tokens.accessToken, {
-      timeoutMs: 30_000,
+      timeoutMs: 60_000,
       until: DocumentStatus.READY,
     });
 
@@ -316,5 +324,29 @@ describe('reaper', () => {
     await expect(reapAbandonedJobs({ visibilityTimeoutMs: 300_000 })).resolves.toMatchObject({
       reaped: 0,
     });
+  });
+});
+
+describe('lost queue messages', () => {
+  it('re-enqueues a job whose message vanished, so the document is not stranded', async () => {
+    const created = await upload(CORPUS[0]);
+
+    // A worker killed between BRPOP and claimJob leaves exactly this: nothing
+    // in Redis, still queued in Mongo.
+    await drainQueue();
+    await Job.updateOne(
+      { _id: created.body.job.id },
+      { $set: { updatedAt: new Date(Date.now() - 300_000) } },
+      { timestamps: false },
+    );
+
+    await expect(reapStuckQueuedJobs({ olderThanMs: 120_000 })).resolves.toBe(1);
+    await expect(queueDepth()).resolves.toMatchObject({ ready: 1 });
+
+    consumer = createConsumer({ concurrency: 1 });
+    consumer.start();
+
+    const document = await waitForStatus(created.body.document.id, owner.tokens.accessToken);
+    expect(document.status).toBe(DocumentStatus.READY);
   });
 });

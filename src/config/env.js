@@ -119,6 +119,8 @@ export const envSchema = z
 
     /* ---- Observability -------------------------------------------------- */
     METRICS_ENABLED: booleanFromEnv(true),
+    // The worker serves no API traffic but still needs a scrape target.
+    WORKER_METRICS_PORT: intFromEnv(9100, { min: 1, max: 65_535 }),
     METRICS_PATH: z.string().startsWith('/').default('/metrics'),
     SWAGGER_ENABLED: booleanFromEnv(true),
   })

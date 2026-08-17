@@ -259,6 +259,33 @@ Verify the bucket is reachable before pointing the API at it:
 npm run gcs:check
 ```
 
+## Observability
+
+| Endpoint               | Where                   | Purpose                                     |
+| ---------------------- | ----------------------- | ------------------------------------------- |
+| `/metrics`             | api :3000, worker :9100 | Prometheus exposition                       |
+| `/api/v1/docs`         | api                     | Swagger UI, try any endpoint in the browser |
+| `/api/v1/openapi.json` | api                     | The raw OpenAPI 3.1 spec                    |
+
+The worker serves no API traffic but runs its own metrics server — without it
+the pipeline timings and queue depth are invisible.
+
+Series worth knowing:
+
+- `askpdf_ingest_stage_duration_seconds` — which of the five stages is slow
+- `askpdf_queue_depth{state}` — read from Redis at scrape time, so it stays
+  truthful when another process consumes a job. This is the signal to autoscale
+  workers on, not CPU.
+- `askpdf_retrieval_score{outcome}` — the histogram that lets
+  `RETRIEVAL_MIN_SCORE` be tuned from real traffic instead of a fixture corpus
+- `askpdf_chat_outcomes_total{outcome}` — refusal rate; a jump after a model
+  change means the floor drifted
+- `askpdf_embedded_texts_total` — a proxy for spend
+
+The OpenAPI spec is hand-written and kept honest by a test: every route the
+routers register must appear in it, and vice versa. Docs that lie are worse
+than no docs, so drift fails the build.
+
 ## Health endpoints
 
 | Endpoint   | Meaning                                                          |

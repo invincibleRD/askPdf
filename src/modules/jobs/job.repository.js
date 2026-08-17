@@ -213,6 +213,28 @@ export async function requeueJob(id) {
   return serialize(job);
 }
 
+/**
+ * Jobs marked queued in Mongo that no longer have a message in Redis.
+ *
+ * BRPOP removes the message, so a worker killed between the pop and the claim
+ * loses the job entirely: nothing in the queue, and still QUEUED here, which
+ * findAbandonedJobs does not look at. Re-enqueueing is safe even when a message
+ * does still exist, because claimJob only lets one worker win.
+ */
+export async function findStuckQueuedJobs(olderThanMs, limit = 50) {
+  const cutoff = new Date(Date.now() - olderThanMs);
+
+  const jobs = await Job.find({
+    status: JobStatus.QUEUED,
+    updatedAt: { $lt: cutoff },
+  })
+    .limit(limit)
+    .lean()
+    .exec();
+
+  return serializeMany(jobs);
+}
+
 /** Claims left behind by an evicted pod — what makes at-least-once hold. */
 export async function findAbandonedJobs(visibilityTimeoutMs, limit = 50) {
   const cutoff = new Date(Date.now() - visibilityTimeoutMs);

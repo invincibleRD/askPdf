@@ -62,6 +62,8 @@ services:
     environment:
       <<: *app-env
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+    ports:
+      - '${WORKER_METRICS_PORT:-9100}:9100'
     # The worker serves no HTTP traffic, so the image healthcheck does not
     # apply to it.
     healthcheck:

@@ -16,9 +16,11 @@ import {
 } from '../modules/jobs/job.repository.js';
 import { findDocumentForOwner } from '../modules/documents/document.repository.js';
 import { runPipeline } from '../pipeline/pipeline.js';
+import { jobOutcomes } from '../infra/metrics/registry.js';
 import {
   dequeue,
   enqueue,
+  requeuePayload,
   promoteDueRetries,
   scheduleRetry,
   sendToDeadLetter,
@@ -92,6 +94,7 @@ export function createConsumer({
         );
 
         await completeJob(jobId);
+        jobOutcomes.inc({ outcome: 'completed' });
         await setJobStatus(jobId, { status: JobStatus.COMPLETED, progress: 100, stage: '' });
         log.info({ jobId, documentId }, 'job completed');
       } catch (error) {
@@ -114,6 +117,7 @@ export function createConsumer({
     });
 
     if (job?.status === JobStatus.DEAD) {
+      jobOutcomes.inc({ outcome: 'dead' });
       await sendToDeadLetter(payload, error?.message ?? 'unknown');
       await setJobStatus(jobId, { status: JobStatus.DEAD, error: error?.message ?? 'unknown' });
       log.error({ jobId, err: error, attempts }, 'job failed permanently');
@@ -122,6 +126,7 @@ export function createConsumer({
 
     // Back to QUEUED before the delayed entry becomes due: claimJob only
     // claims queued jobs, so leaving it FAILED would make the retry a no-op.
+    jobOutcomes.inc({ outcome: 'retried' });
     await requeueJob(jobId);
     await scheduleRetry(payload, attempts);
     await setJobStatus(jobId, { status: JobStatus.QUEUED, error: error?.message ?? 'unknown' });
@@ -155,6 +160,14 @@ export function createConsumer({
 
         if (!payload) {
           continue;
+        }
+
+        // BRPOP removed the message, so a job popped after shutdown began would
+        // be lost: nothing left in Redis, and still QUEUED in Mongo, which the
+        // abandoned-job reaper does not look at. Put it back and stop.
+        if (!running) {
+          await requeuePayload(payload);
+          break;
         }
 
         inFlight += 1;

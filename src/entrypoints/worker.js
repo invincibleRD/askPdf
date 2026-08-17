@@ -8,6 +8,7 @@ import { getStorage } from '../infra/storage/index.js';
 import { getAiProvider } from '../infra/ai/index.js';
 import { createConsumer } from '../queue/consumer.js';
 import { startReaper } from '../queue/reaper.js';
+import { startMetricsServer, stopMetricsServer } from '../http/metrics-server.js';
 
 const log = createLogger('entrypoint:worker');
 
@@ -22,6 +23,7 @@ async function main() {
   getStorage();
   getAiProvider();
 
+  const metricsServer = await startMetricsServer();
   const consumer = createConsumer();
   const stopReaper = startReaper();
 
@@ -32,6 +34,7 @@ async function main() {
       // the clients it depends on are closed.
       stopReaper();
       await consumer.stop();
+      await stopMetricsServer(metricsServer);
       await closeResources();
     },
   });

@@ -3,6 +3,7 @@ import { env } from '../../config/env.js';
 import { DocumentNotReadyError, NoRelevantContextError, NotFoundError } from '../../core/errors.js';
 import { createLogger } from '../../core/logger.js';
 import { getAiProvider } from '../../infra/ai/index.js';
+import { chatOutcomes, retrievalScore } from '../../infra/metrics/registry.js';
 import { toObjectId } from '../../infra/mongo/schema-helpers.js';
 import { findDocumentForOwner } from '../documents/document.repository.js';
 import { Conversation, MAX_MESSAGES } from './conversation.model.js';
@@ -43,6 +44,12 @@ export async function retrieveContext({ documentId, ownerId, question }) {
     { documentId, candidates: results.length, passed: passed.length, bestScore, threshold },
     'retrieval complete',
   );
+
+  // Recorded either way: the refused scores are what let the floor be tuned
+  // from production traffic rather than a fixture corpus.
+  const outcome = passed.length === 0 ? 'refused' : 'answered';
+  retrievalScore.observe({ outcome }, bestScore);
+  chatOutcomes.inc({ outcome });
 
   if (passed.length === 0) {
     throw new NoRelevantContextError(threshold, Number(bestScore.toFixed(4)));
