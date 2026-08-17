@@ -43,7 +43,10 @@ export function createGeminiProvider({
       { label: 'embedContent' },
     );
 
-    const vectors = (response.embeddings ?? []).map((item) => item.values);
+    // gemini-embedding-001 only returns a unit vector at its native 3072
+    // dimensions; a truncated output has to be re-normalised or cosine
+    // similarity computed as a dot product is silently wrong.
+    const vectors = (response.embeddings ?? []).map((item) => normalise(item.values));
 
     if (vectors.length !== texts.length) {
       throw new UpstreamError(
@@ -129,4 +132,13 @@ export function createGeminiProvider({
     generateStream,
     healthCheck,
   };
+}
+
+function normalise(vector) {
+  if (!Array.isArray(vector)) {
+    return vector;
+  }
+
+  const magnitude = Math.hypot(...vector);
+  return magnitude === 0 ? vector : vector.map((value) => value / magnitude);
 }
