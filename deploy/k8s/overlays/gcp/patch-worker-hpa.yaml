@@ -1,0 +1,37 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: worker
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker
+  minReplicas: 1
+  maxReplicas: 8
+  metrics:
+    # Queue depth, not CPU. A worker blocked on a Gemini call uses almost no
+    # CPU while the backlog grows, so CPU-based scaling would sit at one replica
+    # exactly when more are needed. Requires prometheus-adapter exposing
+    # askpdf_queue_depth as an external metric.
+    - type: External
+      external:
+        metric:
+          name: askpdf_queue_depth
+          selector:
+            matchLabels:
+              state: ready
+        target:
+          type: AverageValue
+          averageValue: '5'
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+    scaleDown:
+      # Long, because scaling down mid-ingestion throws away work already paid
+      # for in embedding calls.
+      stabilizationWindowSeconds: 600

@@ -1,0 +1,13 @@
+# The local driver writes to disk, so both processes need a shared writable
+# path. emptyDir is per-pod, which is fine for a single-replica dev cluster and
+# is exactly why GCS exists in production.
+- op: add
+  path: /spec/template/spec/volumes/-
+  value:
+    name: documents
+    emptyDir: {}
+- op: add
+  path: /spec/template/spec/containers/0/volumeMounts/-
+  value:
+    name: documents
+    mountPath: /app/storage

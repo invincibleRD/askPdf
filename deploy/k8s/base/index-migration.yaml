@@ -1,0 +1,65 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-indexes
+  annotations:
+    # Runs before the app rollout: production sets autoIndex false, so without
+    # this the new indexes a release depends on would never be built.
+    argocd.argoproj.io/hook: PreSync
+    helm.sh/hook: pre-install,pre-upgrade
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      serviceAccountName: askpdf
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      initContainers:
+        # Block until Mongo answers, so a cold-start where the database is still
+        # coming up does not burn the Job's retries. A no-op against a managed
+        # Mongo that is already reachable.
+        - name: wait-for-mongo
+          image: askpdf:latest
+          command:
+            - node
+            - -e
+            - |
+              const { MongoClient } = require('mongodb');
+              const uri = process.env.MONGO_URI;
+              const deadline = Date.now() + 120000;
+              (async () => {
+                while (Date.now() < deadline) {
+                  try {
+                    const c = new MongoClient(uri, { serverSelectionTimeoutMS: 3000 });
+                    await c.connect(); await c.db().command({ ping: 1 }); await c.close();
+                    console.log('mongo reachable'); process.exit(0);
+                  } catch { await new Promise(r => setTimeout(r, 3000)); }
+                }
+                console.error('mongo not reachable in time'); process.exit(1);
+              })();
+          envFrom:
+            - configMapRef: { name: askpdf-config }
+            - secretRef: { name: askpdf-secrets }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ['ALL'] }
+      containers:
+        - name: sync-indexes
+          image: askpdf:latest
+          command: ['node', 'scripts/sync-indexes.js']
+          envFrom:
+            - configMapRef:
+                name: askpdf-config
+            - secretRef:
+                name: askpdf-secrets
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ['ALL'] }

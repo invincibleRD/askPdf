@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: askpdf-config
+data:
+  AI_PROVIDER: gemini
+  GEMINI_EMBEDDING_MODEL: gemini-embedding-001
+  GEMINI_CHAT_MODEL: gemini-2.5-flash
+  STORAGE_DRIVER: gcs
+  GCS_BUCKET: ultron-bucket-gcp
+  GCS_PROJECT_ID: ultron-477805
+  GCS_PREFIX: pdf
+  GCS_KEY_FILE: /var/secrets/gcs/key.json

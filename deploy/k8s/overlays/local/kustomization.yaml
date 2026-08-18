@@ -1,0 +1,51 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: askpdf
+
+resources:
+  - ../../base
+  - namespace.yaml
+  - mongo.yaml
+  - redis.yaml
+
+# Dev secrets only. Production uses a real secret store — see the GCP overlay.
+secretGenerator:
+  - name: askpdf-secrets
+    literals:
+      - GEMINI_API_KEY=replace-me
+      - JWT_ACCESS_SECRET=QaVt2zcrI+HruNBi5VZpGO3q3NaoMEbKTc7FBDv0bVoOgGOi
+      - JWT_REFRESH_SECRET=NljiyByJYVKubp1/wKIwaTDAdmZFa8bk678PU07C1YlfQ6uy
+
+patches:
+  - path: patch-local.yaml
+  - path: patch-storage-volume.yaml
+    target:
+      kind: Deployment
+      name: api
+  - path: patch-storage-volume.yaml
+    target:
+      kind: Deployment
+      name: worker
+  # One replica each: a laptop cluster has no capacity to spare, and the PDB
+  # would otherwise block draining.
+  - patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: Deployment
+      name: api
+  # NetworkPolicy needs a CNI that enforces it; kind's default does not.
+  - patch: |
+      $patch: delete
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: metrics-from-monitoring-only
+    target:
+      kind: NetworkPolicy
+
+images:
+  - name: askpdf
+    newTag: dev

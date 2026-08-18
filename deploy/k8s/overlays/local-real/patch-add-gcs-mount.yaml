@@ -1,0 +1,12 @@
+- op: add
+  path: /spec/template/spec/volumes/-
+  value:
+    name: gcs-key
+    secret:
+      secretName: askpdf-gcs-key
+- op: add
+  path: /spec/template/spec/containers/0/volumeMounts/-
+  value:
+    name: gcs-key
+    mountPath: /var/secrets/gcs
+    readOnly: true

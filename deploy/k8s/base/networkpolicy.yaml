@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: metrics-from-monitoring-only
+spec:
+  # /metrics is unauthenticated, so the network is what restricts it. Without
+  # this, anything in the cluster could read queue depth and request volumes.
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: askpdf
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: 9100
+        - port: 3000
+    # Application traffic to the API still comes from the ingress controller.
+    - from:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - port: 3000

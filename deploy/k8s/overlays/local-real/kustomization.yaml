@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Layers real Gemini + real GCS onto the self-contained local overlay, for a
+# production-shaped smoke test on the laptop cluster. The secret VALUES are
+# never here — two secrets are created out of band (see setup-real.sh) and this
+# overlay only references them by name, exactly as External Secrets would on GKE.
+namespace: askpdf
+
+resources:
+  - ../local
+
+patches:
+  - path: patch-real.yaml
+  # Add the real-secret and GCS-key mounts to every process that talks to
+  # Gemini or storage. Each entry references a secret created out of band.
+  - path: patch-add-secrets.yaml
+    target: { kind: Deployment, name: api }
+  - path: patch-add-secrets.yaml
+    target: { kind: Deployment, name: worker }
+  - path: patch-add-gcs-mount.yaml
+    target: { kind: Deployment, name: api }
+  - path: patch-add-gcs-mount.yaml
+    target: { kind: Deployment, name: worker }

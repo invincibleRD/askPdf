@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: askpdf
+  annotations:
+    # Binds this Kubernetes SA to a Google SA. Grant that GSA
+    # roles/storage.objectAdmin on the bucket, then:
+    #   gcloud iam service-accounts add-iam-policy-binding \
+    #     gcp-services-for-ultronai-back@ultron-477805.iam.gserviceaccount.com \
+    #     --role roles/iam.workloadIdentityUser \
+    #     --member "serviceAccount:ultron-477805.svc.id.goog[askpdf/askpdf]"
+    iam.gke.io/gcp-service-account: gcp-services-for-ultronai-back@ultron-477805.iam.gserviceaccount.com

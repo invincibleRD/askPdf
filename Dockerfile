@@ -64,6 +64,8 @@ WORKDIR /app
 COPY --chown=node:node --from=deps /app/node_modules ./node_modules
 COPY --chown=node:node package.json ./
 COPY --chown=node:node src ./src
+# The index-migration Job runs scripts/sync-indexes.js, so it has to be here.
+COPY --chown=node:node scripts ./scripts
 
 RUN mkdir -p /app/storage && chown -R node:node /app/storage
 

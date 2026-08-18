@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: askpdf
+
+resources:
+  - ../../base
+  - namespace.yaml
+
+# No secretGenerator here on purpose. Secrets come from Secret Manager via the
+# Secrets Store CSI driver or External Secrets Operator — see secretstore.yaml.
+# Committing a literal, even base64-wrapped, puts it in git forever.
+
+patches:
+  - path: patch-gcp.yaml
+  - path: patch-workload-identity.yaml
+  - path: patch-worker-hpa.yaml
+
+images:
+  - name: askpdf
+    newName: REGION-docker.pkg.dev/PROJECT_ID/askpdf/askpdf
+    newTag: REPLACED_BY_CI
