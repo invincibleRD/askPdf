@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: askpdf-config
+data:
+  GCS_BUCKET: ultron-bucket-gcp
+  GCS_PROJECT_ID: ultron-477805
+  # GCS_KEY_FILE is deliberately absent: Workload Identity supplies credentials,
+  # so no service account key ever lands on disk or in a Secret.
+  STORAGE_DRIVER: gcs
+
+  # Managed Redis (Memorystore). Swap the host for the instance's private IP.
+  # If you keep the in-cluster StatefulSet instead, point this at redis-0.redis
+  # and copy redis.yaml over from the local overlay.
+  REDIS_URL: redis://10.0.0.3:6379
+
+  CORS_ORIGINS: https://askpdf.example.com
+
+  # Atlas supports $vectorSearch; a self-hosted mongod does not, so this stays
+  # "memory" unless the cluster is Atlas with the index built.
+  VECTOR_SEARCH_DRIVER: memory

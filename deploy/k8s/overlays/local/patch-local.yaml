@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: askpdf-config
+data:
+  NODE_ENV: development
+  LOG_LEVEL: debug
+  # In-cluster dependencies rather than managed ones.
+  MONGO_URI: mongodb://mongo-0.mongo:27017/askpdf
+  REDIS_URL: redis://redis-0.redis:6379
+  # No bucket locally: documents go to an emptyDir instead of GCS.
+  STORAGE_DRIVER: local
+  STORAGE_LOCAL_PATH: /app/storage
+  CORS_ORIGINS: '*'
+  # Fake by default for a self-contained cluster. The real-Gemini smoke test
+  # overrides this to "gemini" via kubectl patch AND must not be followed by a
+  # bare `apply -k`, which would reset it. See docs/runbook.
+  AI_PROVIDER: fake
