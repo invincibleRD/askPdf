@@ -61,7 +61,7 @@ describe('parseEnv', () => {
     const result = parseEnv({
       ...baseEnv(),
       STORAGE_DRIVER: 'gcs',
-      GCS_BUCKET: 'ultron-bucket-gcp',
+      GCS_BUCKET: 'test-bucket',
     });
 
     expect(result.success).toBe(true);

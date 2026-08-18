@@ -6,6 +6,8 @@ namespace: askpdf
 resources:
   - ../../base
   - namespace.yaml
+  # A new resource, not a patch: base has no worker HPA to merge onto.
+  - worker-hpa.yaml
 
 # No secretGenerator here on purpose. Secrets come from Secret Manager via the
 # Secrets Store CSI driver or External Secrets Operator — see secretstore.yaml.
@@ -14,7 +16,6 @@ resources:
 patches:
   - path: patch-gcp.yaml
   - path: patch-workload-identity.yaml
-  - path: patch-worker-hpa.yaml
 
 images:
   - name: askpdf

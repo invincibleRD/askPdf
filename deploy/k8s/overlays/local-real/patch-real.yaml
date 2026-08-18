@@ -7,7 +7,7 @@ data:
   GEMINI_EMBEDDING_MODEL: gemini-embedding-001
   GEMINI_CHAT_MODEL: gemini-2.5-flash
   STORAGE_DRIVER: gcs
-  GCS_BUCKET: ultron-bucket-gcp
-  GCS_PROJECT_ID: ultron-477805
+  GCS_BUCKET: YOUR_GCS_BUCKET
+  GCS_PROJECT_ID: YOUR_PROJECT_ID
   GCS_PREFIX: pdf
   GCS_KEY_FILE: /var/secrets/gcs/key.json

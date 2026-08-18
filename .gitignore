@@ -54,3 +54,6 @@ Thumbs.db
 
 # Local credentials — never committed
 .secrets/
+
+# Local infra values (project ids, bucket names) — never committed
+deploy/k8s/**/*.local.yaml

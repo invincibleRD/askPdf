@@ -6,7 +6,7 @@ metadata:
     # Binds this Kubernetes SA to a Google SA. Grant that GSA
     # roles/storage.objectAdmin on the bucket, then:
     #   gcloud iam service-accounts add-iam-policy-binding \
-    #     gcp-services-for-ultronai-back@ultron-477805.iam.gserviceaccount.com \
+    #     YOUR_GSA@YOUR_PROJECT_ID.iam.gserviceaccount.com \
     #     --role roles/iam.workloadIdentityUser \
-    #     --member "serviceAccount:ultron-477805.svc.id.goog[askpdf/askpdf]"
-    iam.gke.io/gcp-service-account: gcp-services-for-ultronai-back@ultron-477805.iam.gserviceaccount.com
+    #     --member "serviceAccount:YOUR_PROJECT_ID.svc.id.goog[askpdf/askpdf]"
+    iam.gke.io/gcp-service-account: YOUR_GSA@YOUR_PROJECT_ID.iam.gserviceaccount.com

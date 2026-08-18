@@ -12,6 +12,8 @@ resources:
 
 patches:
   - path: patch-real.yaml
+  # Real bucket/project — gitignored, created from the template in the README.
+  - path: patch-values.local.yaml
   # Add the real-secret and GCS-key mounts to every process that talks to
   # Gemini or storage. Each entry references a secret created out of band.
   - path: patch-add-secrets.yaml

@@ -3,8 +3,8 @@ kind: ConfigMap
 metadata:
   name: askpdf-config
 data:
-  GCS_BUCKET: ultron-bucket-gcp
-  GCS_PROJECT_ID: ultron-477805
+  GCS_BUCKET: YOUR_GCS_BUCKET
+  GCS_PROJECT_ID: YOUR_PROJECT_ID
   # GCS_KEY_FILE is deliberately absent: Workload Identity supplies credentials,
   # so no service account key ever lands on disk or in a Secret.
   STORAGE_DRIVER: gcs
